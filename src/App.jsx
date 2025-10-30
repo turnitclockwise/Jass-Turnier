@@ -1,200 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, PlusCircle, Play, Award, Edit2, Check, X, Share2, QrCode } from 'lucide-react';
 
-// NOTE: This app requires Firebase SDK to be loaded via CDN in your HTML
-// Add these scripts to your index.html:
-// <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-// <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
-
-// Firebase configuration - UPDATE WITH YOUR ACTUAL CONFIG
-const FIREBASE_CONFIG = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "jass-turnierplan.firebaseapp.com",
-  databaseURL: "https://jass-turnierplan-default-rtdb.europe-west1.firebasedatabase.app",
-  projectId: "jass-turnierplan",
-  storageBucket: "jass-turnierplan.firebasestorage.app",
-  messagingSenderId: "YOUR_SENDER_ID",
-  appId: "YOUR_APP_ID"
-};
-
-// Firebase Service using global firebase object (CDN)
-const FirebaseService = {
-  database: null,
-  initialized: false,
-  
-  init() {
-    if (this.initialized) return;
-    
-    try {
-      if (typeof firebase !== 'undefined') {
-        if (!firebase.apps.length) {
-          firebase.initializeApp(FIREBASE_CONFIG);
-        }
-        this.database = firebase.database();
-        this.initialized = true;
-        console.log('✅ Firebase initialized successfully');
-      } else {
-        console.error('❌ Firebase SDK not loaded. Add CDN scripts to your HTML.');
-      }
-    } catch (error) {
-      console.error('❌ Firebase initialization error:', error);
-    }
-  },
-  
-  generateId() {
-    return Math.random().toString(36).substring(2, 8).toUpperCase();
-  },
-  
-  async createTournament(tournamentData) {
-    if (!this.initialized) throw new Error('Firebase not initialized');
-    
-    const tournamentId = this.generateId();
-    const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
-    
-    const tournament = {
-      ...tournamentData,
-      id: tournamentId,
-      createdAt: Date.now(),
-      expiresAt: expiresAt,
-      creatorId: 'temp-creator-id',
-      currentAdmin: 'temp-creator-id',
-      status: 'active',
-      connectedUsers: {},
-      version: 1
-    };
-    
-    try {
-      await this.database.ref(`tournaments/${tournamentId}`).set(tournament);
-      console.log('✅ Tournament saved to Firebase:', tournamentId);
-      return tournament;
-    } catch (error) {
-      console.error('❌ Error saving tournament:', error);
-      throw error;
-    }
-  },
-  
-  async getTournament(tournamentId) {
-    if (!this.initialized) throw new Error('Firebase not initialized');
-    
-    try {
-      const snapshot = await this.database.ref(`tournaments/${tournamentId}`).once('value');
-      if (snapshot.exists()) {
-        console.log('✅ Tournament loaded:', tournamentId);
-        return snapshot.val();
-      } else {
-        console.warn('❌ Tournament not found:', tournamentId);
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Error loading tournament:', error);
-      return null;
-    }
-  },
-  
-  subscribeTournament(tournamentId, callback) {
-    if (!this.initialized) return () => {};
-    
-    const ref = this.database.ref(`tournaments/${tournamentId}`);
-    ref.on('value', (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      }
-    }, (error) => {
-      console.error('❌ Error subscribing to tournament:', error);
-    });
-    
-    return () => ref.off('value');
-  },
-  
-  async updateMatch(tournamentId, roundIndex, matchId, matchData) {
-    if (!this.initialized) return;
-    
-    try {
-      const snapshot = await this.database.ref(`tournaments/${tournamentId}`).once('value');
-      const tournament = snapshot.val();
-      
-      if (tournament && tournament.schedule && tournament.schedule[roundIndex]) {
-        const matchIndex = tournament.schedule[roundIndex].matches.findIndex(m => m.id === matchId);
-        if (matchIndex !== -1) {
-          await this.database.ref(`tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`).update(matchData);
-          console.log('✅ Match updated in Firebase');
-        }
-      }
-    } catch (error) {
-      console.error('❌ Error updating match:', error);
-    }
-  },
-  
-  async updatePlayerStats(tournamentId, playerStats) {
-    if (!this.initialized) return;
-    
-    try {
-      await this.database.ref(`tournaments/${tournamentId}/playerStats`).set(playerStats);
-      console.log('✅ Player stats updated in Firebase');
-    } catch (error) {
-      console.error('❌ Error updating player stats:', error);
-    }
-  },
-  
-  async updateCurrentRound(tournamentId, roundIndex) {
-    if (!this.initialized) return;
-    
-    try {
-      await this.database.ref(`tournaments/${tournamentId}/currentRound`).set(roundIndex);
-      console.log('✅ Current round updated in Firebase');
-    } catch (error) {
-      console.error('❌ Error updating current round:', error);
-    }
-  }
-};
-
 const JassTournamentApp = () => {
-  const [view, setView] = useState('home'); // home, setup, join, tournament
+  const [view, setView] = useState('home'); // home, setup, tournament
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [numTables, setNumTables] = useState(2);
   const [tournament, setTournament] = useState(null);
   const [currentRound, setCurrentRound] = useState(0);
-  const [tournamentId, setTournamentId] = useState(null);
-  const [showShareModal, setShowShareModal] = useState(false);
-  const [joinId, setJoinId] = useState('');
-  const [loading, setLoading] = useState(false);
-  
-  // Initialize Firebase on mount
-  useEffect(() => {
-    FirebaseService.init();
-  }, []);
-  
-  // Check URL for tournament ID on mount
-  useEffect(() => {
-    const path = window.location.pathname;
-    const match = path.match(/\/join\/([A-Z0-9]+)/i);
-    if (match) {
-      const id = match[1].toUpperCase();
-      joinTournamentById(id);
-    }
-  }, []);
-  
-  // Subscribe to tournament updates when tournament is active
-  useEffect(() => {
-    if (!tournamentId) return;
-    
-    console.log('📡 Subscribing to tournament updates:', tournamentId);
-    const unsubscribe = FirebaseService.subscribeTournament(tournamentId, (updatedTournament) => {
-      console.log('🔄 Tournament updated from Firebase');
-      setTournament({
-        schedule: updatedTournament.schedule,
-        playerStats: updatedTournament.playerStats,
-        started: true
-      });
-      setCurrentRound(updatedTournament.currentRound || 0);
-    });
-    
-    return () => {
-      console.log('🔌 Unsubscribing from tournament updates');
-      unsubscribe();
-    };
-  }, [tournamentId]);
 
   // Improved round-robin schedule generator
   const generateSchedule = (playerList, tables) => {
@@ -377,17 +190,9 @@ const JassTournamentApp = () => {
       started: true
     };
 
-    try {
-      const createdTournament = await FirebaseService.createTournament(tournamentData);
-      setTournamentId(createdTournament.id);
-      setTournament(tournamentData);
-      setCurrentRound(0);
-      setView('tournament');
-      setShowShareModal(true);
-    } catch (error) {
-      alert('Error creating tournament. Please try again.');
-      console.error(error);
-    }
+    setTournament(tournamentData);
+    setCurrentRound(0);
+    setView('tournament');
   };
 
   const submitScore = async (matchId, team1Score, team2Score, team1Matches, team2Matches) => {
@@ -435,17 +240,6 @@ const JassTournamentApp = () => {
       schedule: updatedSchedule,
       playerStats: updatedStats
     });
-    
-    if (tournamentId) {
-      await FirebaseService.updateMatch(tournamentId, currentRound, matchId, {
-        team1Score: match.team1Score,
-        team2Score: match.team2Score,
-        team1Matches: match.team1Matches,
-        team2Matches: match.team2Matches,
-        submitted: true
-      });
-      await FirebaseService.updatePlayerStats(tournamentId, updatedStats);
-    }
   };
 
   const addPlayer = () => {
@@ -457,42 +251,6 @@ const JassTournamentApp = () => {
 
   const removePlayer = (index) => {
     setPlayers(players.filter((_, i) => i !== index));
-  };
-  
-  const joinTournamentById = async (id) => {
-    setLoading(true);
-    try {
-      const tournamentData = await FirebaseService.getTournament(id);
-      if (tournamentData) {
-        setTournamentId(id);
-        setTournament({
-          schedule: tournamentData.schedule,
-          playerStats: tournamentData.playerStats,
-          started: true
-        });
-        setCurrentRound(tournamentData.currentRound || 0);
-        setView('tournament');
-        console.log('✅ Joined tournament:', id);
-      } else {
-        alert(`Tournament "${id}" not found. Please check the ID and try again.`);
-        setView('home');
-      }
-    } catch (error) {
-      console.error('Error joining tournament:', error);
-      alert('Error joining tournament. Please try again.');
-      setView('home');
-    } finally {
-      setLoading(false);
-    }
-  };
-  
-  const handleJoinSubmit = () => {
-    const id = joinId.trim().toUpperCase();
-    if (id.length !== 6) {
-      alert('Tournament ID must be 6 characters');
-      return;
-    }
-    joinTournamentById(id);
   };
 
   // Setup View
@@ -513,50 +271,6 @@ const JassTournamentApp = () => {
                 <PlusCircle size={24} />
                 Create New Tournament
               </button>
-              
-              <div className="relative">
-                <div className="absolute inset-0 flex items-center">
-                  <div className="w-full border-t border-gray-300"></div>
-                </div>
-                <div className="relative flex justify-center text-sm">
-                  <span className="px-2 bg-white text-gray-500">or</span>
-                </div>
-              </div>
-              
-              <div className="space-y-2">
-                <input
-                  type="text"
-                  value={joinId}
-                  onChange={(e) => setJoinId(e.target.value.toUpperCase())}
-                  onKeyPress={(e) => e.key === 'Enter' && handleJoinSubmit()}
-                  placeholder="Enter Tournament ID"
-                  maxLength={6}
-                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center text-lg font-mono tracking-widest uppercase focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                />
-                <button
-                  onClick={handleJoinSubmit}
-                  disabled={loading || joinId.length !== 6}
-                  className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center justify-center gap-2 font-semibold"
-                >
-                  {loading ? (
-                    <>
-                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Users size={20} />
-                      Join Tournament
-                    </>
-                  )}
-                </button>
-              </div>
-            </div>
-            
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <p className="text-xs text-gray-500">
-                Enter the 6-character tournament ID to join an existing tournament
-              </p>
             </div>
           </div>
         </div>
@@ -584,7 +298,241 @@ const JassTournamentApp = () => {
                 max="5"
                 value={numTables}
                 onChange={(e) => setNumTables(parseInt(e.target.value) || 1)}
-                className="w-full pAdd as Appgit add .
-git commit -m "Add Jass tournament app"
-git push -u origin mainThe following snippets may be helpful:
-From src/App.jsx in local codebase:
+                className="w-full p-2 border rounded-md"
+              />
+            </div>
+
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Players
+              </label>
+              <div className="flex gap-2 mb-2">
+                <input
+                  type="text"
+                  value={newPlayerName}
+                  onChange={(e) => setNewPlayerName(e.target.value)}
+                  onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
+                  placeholder="Enter player name"
+                  className="flex-grow p-2 border rounded-md"
+                />
+                <button
+                  onClick={addPlayer}
+                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
+                >
+                  Add
+                </button>
+              </div>
+              <ul className="space-y-2">
+                {players.map((player, index) => (
+                  <li
+                    key={index}
+                    className="flex items-center justify-between bg-gray-100 p-2 rounded-md"
+                  >
+                    <span>{player}</span>
+                    <button
+                      onClick={() => removePlayer(index)}
+                      className="text-red-500 hover:text-red-700"
+                    >
+                      <X size={18} />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <button
+              onClick={startTournament}
+              disabled={players.length < 4}
+              className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center gap-2 text-lg font-semibold"
+            >
+              <Play size={22} />
+              Start Tournament
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Tournament View
+  if (view === 'tournament' && tournament) {
+    const round = tournament.schedule[currentRound];
+
+    return (
+      <div className="min-h-screen bg-gray-100 p-4">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-6 mb-4">
+            <div className="flex justify-between items-center mb-4">
+              <h1 className="text-3xl font-bold">Round {currentRound + 1}</h1>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setCurrentRound(r => Math.max(0, r - 1))}
+                  disabled={currentRound === 0}
+                  className="px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                  Prev
+                </button>
+                <button
+                  onClick={() => setCurrentRound(r => Math.min(tournament.schedule.length - 1, r + 1))}
+                  disabled={currentRound === tournament.schedule.length - 1}
+                  className="px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+            
+            <h2 className="text-xl font-semibold mb-2">Matches</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {round.matches.map(match => (
+                <MatchCard
+                  key={match.id}
+                  match={match}
+                  players={tournament.playerStats}
+                  onSubmit={submitScore}
+                />
+              ))}
+            </div>
+
+            {round.sitting.length > 0 && (
+              <div className="mt-4">
+                <h3 className="text-lg font-semibold">Sitting Out:</h3>
+                <p className="text-gray-600">
+                  {round.sitting.map(p => tournament.playerStats[p].name).join(', ')}
+                </p>
+              </div>
+            )}
+          </div>
+          <Leaderboard players={tournament.playerStats} />
+        </div>
+      </div>
+    );
+  }
+
+  return <div>Loading...</div>; // Fallback
+};
+
+const MatchCard = ({ match, players, onSubmit }) => {
+  const [scores, setScores] = useState({
+    team1: match.team1Score || '',
+    team2: match.team2Score || ''
+  });
+  const [matches, setMatches] = useState({
+    team1: match.team1Matches || '',
+    team2: match.team2Matches || ''
+  });
+  const [editing, setEditing] = useState(!match.submitted);
+
+  const team1Names = match.team1.map(p => players[p].name).join(' & ');
+  const team2Names = match.team2.map(p => players[p].name).join(' & ');
+
+  const handleSubmit = () => {
+    onSubmit(match.id, scores.team1, scores.team2, matches.team1, matches.team2);
+    setEditing(false);
+  };
+
+  return (
+    <div className={`p-4 rounded-lg shadow-md ${match.submitted ? 'bg-green-50' : 'bg-white'}`}>
+      <div className="flex justify-between items-start">
+        <div>
+          <p className="font-semibold">{team1Names}</p>
+          <p className="text-sm text-gray-500 vs">vs</p>
+          <p className="font-semibold">{team2Names}</p>
+        </div>
+        {editing ? (
+          <button onClick={handleSubmit} className="text-green-500 hover:text-green-700">
+            <Check size={24} />
+          </button>
+        ) : (
+          <button onClick={() => setEditing(true)} className="text-blue-500 hover:text-blue-700">
+            <Edit2 size={20} />
+          </button>
+        )}
+      </div>
+
+      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
+        {editing ? (
+          <>
+            <input
+              type="number"
+              value={scores.team1}
+              onChange={(e) => setScores({...scores, team1: e.target.value})}
+              placeholder="Score"
+              className="p-1 border rounded-md w-full"
+            />
+            <input
+              type="number"
+              value={scores.team2}
+              onChange={(e) => setScores({...scores, team2: e.target.value})}
+              placeholder="Score"
+              className="p-1 border rounded-md w-full"
+            />
+            <input
+              type="number"
+              value={matches.team1}
+              onChange={(e) => setMatches({...matches, team1: e.target.value})}
+              placeholder="Matches"
+              className="p-1 border rounded-md w-full"
+            />
+            <input
+              type="number"
+              value={matches.team2}
+              onChange={(e) => setMatches({...matches, team2: e.target.value})}
+              placeholder="Matches"
+              className="p-1 border rounded-md w-full"
+            />
+          </>
+        ) : (
+          <>
+            <div>
+              <p className="font-bold text-lg">{match.team1Score || 'N/A'}</p>
+              <p className="text-xs text-gray-500">({match.team1Matches} matches)</p>
+            </div>
+            <div>
+              <p className="font-bold text-lg">{match.team2Score || 'N/A'}</p>
+              <p className="text-xs text-gray-500">({match.team2Matches} matches)</p>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
+};
+
+
+const Leaderboard = ({ players }) => {
+  const sortedPlayers = [...players].sort((a, b) => b.totalPoints - a.totalPoints);
+
+  return (
+    <div className="bg-white rounded-lg shadow-lg p-6">
+      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
+        <Award size={24} className="text-yellow-500" />
+        Leaderboard
+      </h2>
+      <table className="w-full text-left">
+        <thead>
+          <tr className="border-b">
+            <th className="p-2">Rank</th>
+            <th className="p-2">Player</th>
+            <th className="p-2">Points</th>
+            <th className="p-2">Matches Won</th>
+            <th className="p-2">Games Played</th>
+          </tr>
+        </thead>
+        <tbody>
+          {sortedPlayers.map((p, idx) => (
+            <tr key={p.id} className="border-b hover:bg-gray-50">
+              <td className="p-2 font-semibold">{idx + 1}</td>
+              <td className="p-2">{p.name}</td>
+              <td className="p-2">{p.totalPoints}</td>
+              <td className="p-2">{p.totalMatches}</td>
+              <td className="p-2">{p.gamesPlayed}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
+export default JassTournamentApp;
