@@ -1,13 +1,44 @@
 import React, { useState, useEffect } from 'react';
 import { Trophy, Users, PlusCircle, Play, Award, Edit2, Check, X, Share2, QrCode } from 'lucide-react';
+import { database } from './firebase';
+import { ref, set, onValue } from 'firebase/database';
+import { nanoid } from 'nanoid';
 
 const JassTournamentApp = () => {
-  const [view, setView] = useState('home'); // home, setup, tournament
+  const [view, setView] = useState('home'); // home, setup, join, tournament
   const [players, setPlayers] = useState([]);
   const [newPlayerName, setNewPlayerName] = useState('');
   const [numTables, setNumTables] = useState(2);
   const [tournament, setTournament] = useState(null);
   const [currentRound, setCurrentRound] = useState(0);
+  const [tournamentId, setTournamentId] = useState('');
+
+  useEffect(() => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const id = urlParams.get('tournament');
+    if (id) {
+      setTournamentId(id);
+      setView('tournament');
+    }
+  }, []);
+
+  useEffect(() => {
+    if (view === 'tournament' && tournamentId) {
+      const tournamentRef = ref(database, 'tournaments/' + tournamentId);
+      onValue(tournamentRef, (snapshot) => {
+        const data = snapshot.val();
+        if (data) {
+          setTournament(data);
+          setPlayers(data.playerStats);
+          setCurrentRound(data.currentRound);
+        } else {
+          setView('home');
+          alert("Tournament not found!");
+        }
+      });
+    }
+  }, [view, tournamentId]);
+
 
   // Improved round-robin schedule generator
   const generateSchedule = (playerList, tables) => {
@@ -172,7 +203,7 @@ const JassTournamentApp = () => {
       alert(`With ${players.length} players, you can have maximum ${Math.floor(players.length / 4)} tables`);
       return;
     }
-
+    const id = nanoid(6);
     const schedule = generateSchedule(players, numTables);
     const playerStats = players.map((name, idx) => ({
       id: idx,
@@ -183,6 +214,7 @@ const JassTournamentApp = () => {
     }));
 
     const tournamentData = {
+      id,
       schedule: schedule,
       playerStats: playerStats,
       numTables: numTables,
@@ -190,8 +222,11 @@ const JassTournamentApp = () => {
       started: true
     };
 
-    setTournament(tournamentData);
-    setCurrentRound(0);
+    const tournamentRef = ref(database, 'tournaments/' + id);
+    await set(tournamentRef, tournamentData);
+
+    setTournamentId(id);
+    window.history.pushState({}, '', `?tournament=${id}`);
     setView('tournament');
   };
 
@@ -235,11 +270,14 @@ const JassTournamentApp = () => {
       updatedStats[playerId].gamesPlayed += 1;
     });
 
-    setTournament({
+    const updatedTournament = {
       ...tournament,
       schedule: updatedSchedule,
       playerStats: updatedStats
-    });
+    };
+
+    const tournamentRef = ref(database, 'tournaments/' + tournamentId);
+    await set(tournamentRef, updatedTournament);
   };
 
   const addPlayer = () => {
@@ -251,6 +289,13 @@ const JassTournamentApp = () => {
 
   const removePlayer = (index) => {
     setPlayers(players.filter((_, i) => i !== index));
+  };
+
+  const shareTournament = () => {
+    const url = window.location.href;
+    navigator.clipboard.writeText(url).then(() => {
+      alert('Tournament URL copied to clipboard!');
+    });
   };
 
   // Setup View
@@ -271,12 +316,48 @@ const JassTournamentApp = () => {
                 <PlusCircle size={24} />
                 Create New Tournament
               </button>
+              <button
+                onClick={() => setView('join')}
+                className="w-full py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-3 text-lg font-semibold shadow-md"
+              >
+                <Users size={24} />
+                Join Tournament
+              </button>
             </div>
           </div>
         </div>
       </div>
     );
   }
+
+  if (view === 'join') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 flex items-center justify-center">
+        <div className="max-w-md w-full">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <h1 className="text-3xl font-bold text-gray-800 mb-4">Join Tournament</h1>
+            <input
+              type="text"
+              value={tournamentId}
+              onChange={(e) => setTournamentId(e.target.value)}
+              placeholder="Enter Tournament ID"
+              className="w-full p-3 border rounded-md mb-4 text-center"
+            />
+            <button
+              onClick={() => {
+                window.history.pushState({}, '', `?tournament=${tournamentId}`);
+                setView('tournament');
+              }}
+              className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
+            >
+              Join
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
 
   if (view === 'setup') {
     return (
@@ -365,6 +446,9 @@ const JassTournamentApp = () => {
             <div className="flex justify-between items-center mb-4">
               <h1 className="text-3xl font-bold">Round {currentRound + 1}</h1>
               <div className="flex gap-2">
+              <button onClick={shareTournament} className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600">
+                  <Share2 size={20} />
+                </button>
                 <button
                   onClick={() => setCurrentRound(r => Math.max(0, r - 1))}
                   disabled={currentRound === 0}
