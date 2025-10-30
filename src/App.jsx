@@ -1,371 +1,278 @@
 import React, { useState, useEffect } from 'react';
-import { Trophy, Users, PlusCircle, Play, Award, Edit2, Check, X, Share2, QrCode } from 'lucide-react';
-import { database } from './firebase';
-import { ref, set, onValue } from 'firebase/database';
-import { nanoid } from 'nanoid';
+import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck } from 'lucide-react';
 
-const JassTournamentApp = () => {
-  const [view, setView] = useState('home'); // home, setup, join, tournament
-  const [players, setPlayers] = useState([]);
-  const [newPlayerName, setNewPlayerName] = useState('');
+const App = () => {
+  const [view, setView] = useState('setup');
   const [numTables, setNumTables] = useState(2);
+  const [playerNames, setPlayerNames] = useState(['']);
   const [tournament, setTournament] = useState(null);
   const [currentRound, setCurrentRound] = useState(0);
-  const [tournamentId, setTournamentId] = useState('');
+  const [identifiedPlayer, setIdentifiedPlayer] = useState(null);
+  const [showIdentityModal, setShowIdentityModal] = useState(false);
 
-  useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const id = urlParams.get('tournament');
-    if (id) {
-      setTournamentId(id);
-      setView('tournament');
-    }
-  }, []);
-
-  useEffect(() => {
-    if (view === 'tournament' && tournamentId) {
-      const tournamentRef = ref(database, 'tournaments/' + tournamentId);
-      onValue(tournamentRef, (snapshot) => {
-        const data = snapshot.val();
-        if (data) {
-          setTournament(data);
-          setPlayers(data.playerStats);
-          setCurrentRound(data.currentRound);
-        } else {
-          setView('home');
-          alert("Tournament not found!");
-        }
-      });
-    }
-  }, [view, tournamentId]);
-
-
-  // Improved round-robin schedule generator
-  const generateSchedule = (playerList, tables) => {
-    const n = playerList.length;
+  const generateSchedule = (players, tables) => {
+    const n = players.length;
     const rounds = n - 1;
+    const playersPerTable = 4;
+    const totalPlayers = tables * playersPerTable;
     const schedule = [];
-    
-    const maxPlayersPerRound = tables * 4;
-    const playersPerRound = Math.floor(Math.min(n, maxPlayersPerRound) / 4) * 4;
-    const breaksPerRound = n - playersPerRound;
-    
-    const usedPartnerships = new Set();
-    const usedOpponents = new Map();
-    
-    for (let i = 0; i < n; i++) {
-      for (let j = i + 1; j < n; j++) {
-        usedOpponents.set(`${i}-${j}`, 0);
-      }
-    }
-    
-    const breakCount = new Array(n).fill(0);
-    const lastBreak = new Array(n).fill(-2);
-    
+
+    const partnerships = new Set();
+    const opponentMatchups = new Map();
+
     for (let round = 0; round < rounds; round++) {
-      const roundMatches = [];
-      let available = [...Array(n).keys()];
       const sitting = [];
-      
-      const breakPriority = available.map(p => ({
-        player: p,
-        breaks: breakCount[p],
-        lastBreak: lastBreak[p],
-        priorityScore: -breakCount[p] * 1000 + (lastBreak[p] === round - 1 ? -10000 : 0)
-      })).sort((a, b) => b.priorityScore - a.priorityScore);
-      
-      for (let i = 0; i < breaksPerRound; i++) {
-        let selectedPlayer = null;
-        for (const candidate of breakPriority) {
-          if (!sitting.includes(candidate.player)) {
-            selectedPlayer = candidate.player;
-            break;
-          }
-        }
-        if (selectedPlayer !== null) {
-          sitting.push(selectedPlayer);
-          breakCount[selectedPlayer]++;
-          lastBreak[selectedPlayer] = round;
+      const availablePlayers = [];
+
+      if (n > totalPlayers) {
+        const numSitting = n - totalPlayers;
+        for (let i = 0; i < numSitting; i++) {
+          sitting.push((round + i) % n);
         }
       }
-      
-      available = available.filter(p => !sitting.includes(p));
-      
-      for (let i = available.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [available[i], available[j]] = [available[j], available[i]];
+
+      for (let i = 0; i < n; i++) {
+        if (!sitting.includes(i)) {
+          availablePlayers.push(i);
+        }
       }
-      
+
+      const matches = [];
       const used = new Set();
-      const maxMatches = Math.floor(available.length / 4);
-      
-      for (let t = 0; t < maxMatches; t++) {
-        let bestMatch = null;
-        let bestScore = -Infinity;
+
+      for (let table = 0; table < tables && used.size < availablePlayers.length; table++) {
+        const remaining = availablePlayers.filter(p => !used.has(p));
         
-        for (let attempts = 0; attempts < 200; attempts++) {
-          const remainingPlayers = available.filter(p => !used.has(p));
-          if (remainingPlayers.length < 4) break;
-          
-          const shuffled = [...remainingPlayers].sort(() => Math.random() - 0.5);
-          const p1 = shuffled[0];
-          const p2 = shuffled[1];
-          const p3 = shuffled[2];
-          const p4 = shuffled[3];
-          
-          const configs = [
-            { team1: [p1, p2], team2: [p3, p4] },
-            { team1: [p1, p3], team2: [p2, p4] },
-            { team1: [p1, p4], team2: [p2, p3] }
-          ];
-          
-          for (const config of configs) {
-            const t1 = config.team1.sort((a, b) => a - b);
-            const t2 = config.team2.sort((a, b) => a - b);
-            
-            const p1Key = `${t1[0]}-${t1[1]}`;
-            const p2Key = `${t2[0]}-${t2[1]}`;
-            const opp1Key = `${Math.min(t1[0], t2[0])}-${Math.max(t1[0], t2[0])}`;
-            const opp2Key = `${Math.min(t1[0], t2[1])}-${Math.max(t1[0], t2[1])}`;
-            const opp3Key = `${Math.min(t1[1], t2[0])}-${Math.max(t1[1], t2[0])}`;
-            const opp4Key = `${Math.min(t1[1], t2[1])}-${Math.max(t1[1], t2[1])}`;
-            
-            const p1Used = usedPartnerships.has(p1Key);
-            const p2Used = usedPartnerships.has(p2Key);
-            
-            if (p1Used && p2Used && round < rounds / 2) {
-              continue;
+        if (remaining.length >= 4) {
+          let team1 = null;
+          let team2 = null;
+
+          for (let i = 0; i < remaining.length - 1; i++) {
+            for (let j = i + 1; j < remaining.length; j++) {
+              const p1 = remaining[i];
+              const p2 = remaining[j];
+              const partnerKey = `${Math.min(p1, p2)}-${Math.max(p1, p2)}`;
+              
+              if (!partnerships.has(partnerKey) && !team1) {
+                team1 = [p1, p2];
+                partnerships.add(partnerKey);
+                used.add(p1);
+                used.add(p2);
+                break;
+              }
             }
-            
-            const partnershipPenalty = (p1Used ? 50 : 0) + (p2Used ? 50 : 0);
-            const oppScore = (
-              (usedOpponents.get(opp1Key) || 0) +
-              (usedOpponents.get(opp2Key) || 0) +
-              (usedOpponents.get(opp3Key) || 0) +
-              (usedOpponents.get(opp4Key) || 0)
-            );
-            
-            const score = -oppScore - partnershipPenalty;
-            
-            if (score > bestScore) {
-              bestScore = score;
-              bestMatch = {
-                team1: t1,
-                team2: t2,
-                oppKeys: [opp1Key, opp2Key, opp3Key, opp4Key],
-                partnerKeys: [p1Key, p2Key]
-              };
+            if (team1) break;
+          }
+
+          const remaining2 = remaining.filter(p => !used.has(p));
+          if (remaining2.length >= 2) {
+            for (let i = 0; i < remaining2.length - 1; i++) {
+              for (let j = i + 1; j < remaining2.length; j++) {
+                const p1 = remaining2[i];
+                const p2 = remaining2[j];
+                const partnerKey = `${Math.min(p1, p2)}-${Math.max(p1, p2)}`;
+                
+                if (!partnerships.has(partnerKey)) {
+                  team2 = [p1, p2];
+                  partnerships.add(partnerKey);
+                  used.add(p1);
+                  used.add(p2);
+                  break;
+                }
+              }
+              if (team2) break;
             }
           }
-        }
-        
-        if (bestMatch) {
-          roundMatches.push({
-            id: `r${round}-m${t}`,
-            team1: bestMatch.team1,
-            team2: bestMatch.team2,
-            team1Score: null,
-            team2Score: null,
-            team1Matches: 0,
-            team2Matches: 0,
-            submitted: false
-          });
-          
-          bestMatch.partnerKeys.forEach(key => usedPartnerships.add(key));
-          bestMatch.oppKeys.forEach(key => {
-            usedOpponents.set(key, (usedOpponents.get(key) || 0) + 1);
-          });
-          
-          bestMatch.team1.forEach(p => used.add(p));
-          bestMatch.team2.forEach(p => used.add(p));
-        } else {
-          break;
+
+          if (team1 && team2) {
+            matches.push({
+              id: `r${round}-m${table}`,
+              table: table + 1,
+              team1: team1,
+              team2: team2,
+              scoreSubmission: {
+                status: 'none',
+                team1Score: null,
+                team2Score: null,
+                team1Matches: 0,
+                team2Matches: 0,
+                submittedBy: null,
+                submittedAt: null,
+                verifiedBy: null,
+                verifiedAt: null,
+                disputedBy: null,
+                disputeReason: '',
+                disputedAt: null,
+                autoAccepted: false
+              }
+            });
+          }
         }
       }
-      
+
       schedule.push({
         roundNumber: round + 1,
-        matches: roundMatches,
-        sitting: sitting
+        matches,
+        sitting
       });
     }
-    
+
     return schedule;
   };
 
-  const startTournament = async () => {
-    if (players.length < 4) {
-      alert('Need at least 4 players to start tournament');
+  const startTournament = () => {
+    const validPlayers = playerNames.filter(name => name.trim() !== '');
+    const minPlayers = numTables * 4;
+
+    if (validPlayers.length < minPlayers) {
+      alert(`Need at least ${minPlayers} players for ${numTables} table(s)`);
       return;
     }
 
-    if (numTables * 4 > players.length) {
-      alert(`With ${players.length} players, you can have maximum ${Math.floor(players.length / 4)} tables`);
-      return;
-    }
-    const id = nanoid(6);
-    const schedule = generateSchedule(players, numTables);
-    const playerStats = players.map((name, idx) => ({
+    const schedule = generateSchedule(validPlayers, numTables);
+    const playerStats = validPlayers.map((name, idx) => ({
       id: idx,
-      name: name,
+      name,
       totalPoints: 0,
       totalMatches: 0,
       gamesPlayed: 0
     }));
 
-    const tournamentData = {
-      id,
-      schedule: schedule,
-      playerStats: playerStats,
-      numTables: numTables,
-      currentRound: 0,
-      started: true
-    };
-
-    const tournamentRef = ref(database, 'tournaments/' + id);
-    await set(tournamentRef, tournamentData);
-
-    setTournamentId(id);
-    window.history.pushState({}, '', `?tournament=${id}`);
+    setTournament({
+      players: validPlayers,
+      playerStats,
+      schedule,
+      createdAt: Date.now()
+    });
     setView('tournament');
   };
 
-  const submitScore = async (matchId, team1Score, team2Score, team1Matches, team2Matches) => {
-    const updatedSchedule = [...tournament.schedule];
-    const match = updatedSchedule[currentRound].matches.find(m => m.id === matchId);
-    
-    if (!match) return;
-
-    const updatedStats = [...tournament.playerStats];
-    
-    if (match.submitted) {
-      match.team1.forEach(playerId => {
-        updatedStats[playerId].totalPoints -= match.team1Score;
-        updatedStats[playerId].totalMatches -= match.team1Matches;
-        updatedStats[playerId].gamesPlayed -= 1;
-      });
-
-      match.team2.forEach(playerId => {
-        updatedStats[playerId].totalPoints -= match.team2Score;
-        updatedStats[playerId].totalMatches -= match.team2Matches;
-        updatedStats[playerId].gamesPlayed -= 1;
-      });
-    }
-
-    match.team1Score = parseInt(team1Score);
-    match.team2Score = parseInt(team2Score);
-    match.team1Matches = parseInt(team1Matches);
-    match.team2Matches = parseInt(team2Matches);
-    match.submitted = true;
-
-    match.team1.forEach(playerId => {
-      updatedStats[playerId].totalPoints += match.team1Score;
-      updatedStats[playerId].totalMatches += match.team1Matches;
-      updatedStats[playerId].gamesPlayed += 1;
-    });
-
-    match.team2.forEach(playerId => {
-      updatedStats[playerId].totalPoints += match.team2Score;
-      updatedStats[playerId].totalMatches += match.team2Matches;
-      updatedStats[playerId].gamesPlayed += 1;
-    });
-
-    const updatedTournament = {
-      ...tournament,
-      schedule: updatedSchedule,
-      playerStats: updatedStats
-    };
-
-    const tournamentRef = ref(database, 'tournaments/' + tournamentId);
-    await set(tournamentRef, updatedTournament);
-  };
-
   const addPlayer = () => {
-    if (newPlayerName.trim()) {
-      setPlayers([...players, newPlayerName.trim()]);
-      setNewPlayerName('');
-    }
+    setPlayerNames([...playerNames, '']);
   };
 
   const removePlayer = (index) => {
-    setPlayers(players.filter((_, i) => i !== index));
+    setPlayerNames(playerNames.filter((_, i) => i !== index));
   };
 
-  const shareTournament = () => {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      alert('Tournament URL copied to clipboard!');
+  const updatePlayerName = (index, name) => {
+    const updated = [...playerNames];
+    updated[index] = name;
+    setPlayerNames(updated);
+  };
+
+  const identifyAsPlayer = (playerId) => {
+    setIdentifiedPlayer(playerId);
+    setShowIdentityModal(false);
+  };
+
+  const isPlayerInMatch = (match) => {
+    if (identifiedPlayer === null) return false;
+    return [...match.team1, ...match.team2].includes(identifiedPlayer);
+  };
+
+  const submitScore = (roundIdx, matchIdx, team1Score, team2Score, team1Matches, team2Matches) => {
+    const match = tournament.schedule[roundIdx].matches[matchIdx];
+    
+    if (team1Score + team2Score !== 628) {
+      alert('Scores must add up to exactly 628 points!');
+      return;
+    }
+
+    if (team1Matches + team2Matches > 4) {
+      alert('Total Matches cannot exceed 4!');
+      return;
+    }
+
+    const updatedTournament = { ...tournament };
+    const updatedMatch = { ...match };
+    
+    updatedMatch.scoreSubmission = {
+      status: 'pending',
+      team1Score,
+      team2Score,
+      team1Matches,
+      team2Matches,
+      submittedBy: identifiedPlayer,
+      submittedAt: Date.now(),
+      verifiedBy: null,
+      verifiedAt: null,
+      disputedBy: null,
+      disputeReason: '',
+      disputedAt: null,
+      autoAccepted: false
+    };
+
+    updatedTournament.schedule[roundIdx].matches[matchIdx] = updatedMatch;
+    setTournament(updatedTournament);
+  };
+
+  const verifyScore = (roundIdx, matchIdx) => {
+    const updatedTournament = { ...tournament };
+    const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
+    
+    match.scoreSubmission.status = 'verified';
+    match.scoreSubmission.verifiedBy = identifiedPlayer;
+    match.scoreSubmission.verifiedAt = Date.now();
+
+    const { team1Score, team2Score, team1Matches, team2Matches } = match.scoreSubmission;
+    
+    match.team1.forEach(playerId => {
+      const player = updatedTournament.playerStats[playerId];
+      player.totalPoints += team1Score;
+      player.totalMatches += team1Matches;
+      player.gamesPlayed += 1;
+    });
+
+    match.team2.forEach(playerId => {
+      const player = updatedTournament.playerStats[playerId];
+      player.totalPoints += team2Score;
+      player.totalMatches += team2Matches;
+      player.gamesPlayed += 1;
+    });
+
+    setTournament(updatedTournament);
+  };
+
+  const disputeScore = (roundIdx, matchIdx, reason) => {
+    const updatedTournament = { ...tournament };
+    const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
+    
+    match.scoreSubmission.status = 'disputed';
+    match.scoreSubmission.disputedBy = identifiedPlayer;
+    match.scoreSubmission.disputeReason = reason || 'Score disputed';
+    match.scoreSubmission.disputedAt = Date.now();
+
+    setTournament(updatedTournament);
+  };
+
+  const resolveDispute = (roundIdx, matchIdx, acceptScore) => {
+    if (acceptScore) {
+      verifyScore(roundIdx, matchIdx);
+    } else {
+      const updatedTournament = { ...tournament };
+      updatedTournament.schedule[roundIdx].matches[matchIdx].scoreSubmission.status = 'none';
+      setTournament(updatedTournament);
+    }
+  };
+
+  const getStandings = () => {
+    if (!tournament) return [];
+    return [...tournament.playerStats].sort((a, b) => {
+      if (b.totalPoints !== a.totalPoints) {
+        return b.totalPoints - a.totalPoints;
+      }
+      return b.totalMatches - a.totalMatches;
     });
   };
 
-  // Setup View
-  if (view === 'home') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4 flex items-center justify-center">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <Trophy className="text-yellow-500 mx-auto mb-4" size={64} />
-            <h1 className="text-4xl font-bold text-gray-800 mb-2">Jass Tournament</h1>
-            <p className="text-gray-600 mb-8">Manage your card game tournament</p>
-            
-            <div className="space-y-4">
-              <button
-                onClick={() => setView('setup')}
-                className="w-full py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-3 text-lg font-semibold shadow-md"
-              >
-                <PlusCircle size={24} />
-                Create New Tournament
-              </button>
-              <button
-                onClick={() => setView('join')}
-                className="w-full py-4 bg-blue-500 text-white rounded-lg hover:bg-blue-600 flex items-center justify-center gap-3 text-lg font-semibold shadow-md"
-              >
-                <Users size={24} />
-                Join Tournament
-              </button>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  if (view === 'join') {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-purple-50 p-4 flex items-center justify-center">
-        <div className="max-w-md w-full">
-          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
-            <h1 className="text-3xl font-bold text-gray-800 mb-4">Join Tournament</h1>
-            <input
-              type="text"
-              value={tournamentId}
-              onChange={(e) => setTournamentId(e.target.value)}
-              placeholder="Enter Tournament ID"
-              className="w-full p-3 border rounded-md mb-4 text-center"
-            />
-            <button
-              onClick={() => {
-                window.history.pushState({}, '', `?tournament=${tournamentId}`);
-                setView('tournament');
-              }}
-              className="w-full py-3 bg-blue-500 text-white rounded-lg hover:bg-blue-600"
-            >
-              Join
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-
   if (view === 'setup') {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-green-50 to-blue-50 p-4">
-        <div className="max-w-2xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6">
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="flex items-center gap-3 mb-6">
-              <Trophy className="text-yellow-500" size={32} />
+              <Trophy className="text-indigo-600" size={32} />
               <h1 className="text-3xl font-bold text-gray-800">Jass Tournament Setup</h1>
             </div>
 
@@ -378,55 +285,49 @@ const JassTournamentApp = () => {
                 min="1"
                 max="5"
                 value={numTables}
-                onChange={(e) => setNumTables(parseInt(e.target.value) || 1)}
-                className="w-full p-2 border rounded-md"
+                onChange={(e) => setNumTables(parseInt(e.target.value))}
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               />
+              <p className="text-sm text-gray-500 mt-1">
+                Minimum players needed: {numTables * 4}
+              </p>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Players
+                Player Names
               </label>
-              <div className="flex gap-2 mb-2">
-                <input
-                  type="text"
-                  value={newPlayerName}
-                  onChange={(e) => setNewPlayerName(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && addPlayer()}
-                  placeholder="Enter player name"
-                  className="flex-grow p-2 border rounded-md"
-                />
-                <button
-                  onClick={addPlayer}
-                  className="px-4 py-2 bg-blue-500 text-white rounded-md hover:bg-blue-600"
-                >
-                  Add
-                </button>
-              </div>
-              <ul className="space-y-2">
-                {players.map((player, index) => (
-                  <li
-                    key={index}
-                    className="flex items-center justify-between bg-gray-100 p-2 rounded-md"
-                  >
-                    <span>{player}</span>
+              {playerNames.map((name, idx) => (
+                <div key={idx} className="flex gap-2 mb-2">
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => updatePlayerName(idx, e.target.value)}
+                    placeholder={`Player ${idx + 1}`}
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  />
+                  {playerNames.length > 1 && (
                     <button
-                      onClick={() => removePlayer(index)}
-                      className="text-red-500 hover:text-red-700"
+                      onClick={() => removePlayer(idx)}
+                      className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                     >
-                      <X size={18} />
+                      Remove
                     </button>
-                  </li>
-                ))}
-              </ul>
+                  )}
+                </div>
+              ))}
+              <button
+                onClick={addPlayer}
+                className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
+              >
+                Add Player
+              </button>
             </div>
 
             <button
               onClick={startTournament}
-              disabled={players.length < 4}
-              className="w-full py-3 bg-green-500 text-white rounded-lg hover:bg-green-600 disabled:bg-gray-400 flex items-center justify-center gap-2 text-lg font-semibold"
+              className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
             >
-              <Play size={22} />
               Start Tournament
             </button>
           </div>
@@ -435,188 +336,430 @@ const JassTournamentApp = () => {
     );
   }
 
-  // Tournament View
-  if (view === 'tournament' && tournament) {
-    const round = tournament.schedule[currentRound];
+  const currentRoundData = tournament.schedule[currentRound];
+  const standings = getStandings();
 
-    return (
-      <div className="min-h-screen bg-gray-100 p-4">
-        <div className="max-w-4xl mx-auto">
-          <div className="bg-white rounded-lg shadow-lg p-6 mb-4">
-            <div className="flex justify-between items-center mb-4">
-              <h1 className="text-3xl font-bold">Round {currentRound + 1}</h1>
-              <div className="flex gap-2">
-              <button onClick={shareTournament} className="p-2 bg-blue-500 text-white rounded-full hover:bg-blue-600">
-                  <Share2 size={20} />
-                </button>
-                <button
-                  onClick={() => setCurrentRound(r => Math.max(0, r - 1))}
-                  disabled={currentRound === 0}
-                  className="px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
-                >
-                  Prev
-                </button>
-                <button
-                  onClick={() => setCurrentRound(r => Math.min(tournament.schedule.length - 1, r + 1))}
-                  disabled={currentRound === tournament.schedule.length - 1}
-                  className="px-3 py-1 bg-gray-200 rounded-md disabled:opacity-50"
-                >
-                  Next
-                </button>
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+      <div className="max-w-7xl mx-auto">
+        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+          <div className="flex justify-between items-center">
+            <div className="flex items-center gap-3">
+              <Trophy className="text-indigo-600" size={32} />
+              <div>
+                <h1 className="text-2xl font-bold text-gray-800">Jass Tournament</h1>
+                <p className="text-sm text-gray-600">
+                  Round {currentRound + 1} of {tournament.schedule.length}
+                </p>
               </div>
             </div>
-            
-            <h2 className="text-xl font-semibold mb-2">Matches</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {round.matches.map(match => (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowIdentityModal(true)}
+                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+              >
+                <UserCheck size={18} />
+                {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
+              </button>
+            </div>
+          </div>
+
+          <div className="flex gap-2 mt-4">
+            <button
+              onClick={() => setCurrentRound(Math.max(0, currentRound - 1))}
+              disabled={currentRound === 0}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            >
+              Previous Round
+            </button>
+            <button
+              onClick={() => setCurrentRound(Math.min(tournament.schedule.length - 1, currentRound + 1))}
+              disabled={currentRound === tournament.schedule.length - 1}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+            >
+              Next Round
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4">Matches</h2>
+              
+              {currentRoundData.sitting.length > 0 && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-800">
+                    On break: {currentRoundData.sitting.map(id => tournament.players[id]).join(', ')}
+                  </p>
+                </div>
+              )}
+
+              {currentRoundData.matches.map((match, idx) => (
                 <MatchCard
                   key={match.id}
                   match={match}
-                  players={tournament.playerStats}
-                  onSubmit={submitScore}
+                  tournament={tournament}
+                  roundIdx={currentRound}
+                  matchIdx={idx}
+                  identifiedPlayer={identifiedPlayer}
+                  isPlayerInMatch={isPlayerInMatch(match)}
+                  onSubmitScore={submitScore}
+                  onVerifyScore={verifyScore}
+                  onDisputeScore={disputeScore}
+                  onResolveDispute={resolveDispute}
                 />
               ))}
             </div>
-
-            {round.sitting.length > 0 && (
-              <div className="mt-4">
-                <h3 className="text-lg font-semibold">Sitting Out:</h3>
-                <p className="text-gray-600">
-                  {round.sitting.map(p => tournament.playerStats[p].name).join(', ')}
-                </p>
-              </div>
-            )}
           </div>
-          <Leaderboard players={tournament.playerStats} />
+
+          <div>
+            <div className="bg-white rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Trophy className="text-yellow-500" size={24} />
+                Standings
+              </h2>
+              <div className="space-y-2">
+                {standings.map((player, idx) => (
+                  <div
+                    key={player.id}
+                    className={`p-3 rounded-lg ${
+                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-gray-50'
+                    }`}
+                  >
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <span className="font-bold text-gray-700">#{idx + 1}</span>
+                          <span className={`font-medium ${idx === 0 ? 'text-yellow-700' : 'text-gray-800'}`}>
+                            {player.name}
+                          </span>
+                          {player.id === identifiedPlayer && (
+                            <UserCheck size={14} className="text-indigo-600" />
+                          )}
+                        </div>
+                        <div className="text-sm text-gray-600 mt-1">
+                          {player.gamesPlayed} games played
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="font-bold text-lg text-gray-800">{player.totalPoints}</div>
+                        <div className="text-sm text-gray-600">
+                          {player.totalMatches} 🏆
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
         </div>
       </div>
-    );
-  }
 
-  return <div>Loading...</div>; // Fallback
+      {showIdentityModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Identify Yourself</h3>
+            <p className="text-sm text-gray-600 mb-4">
+              Select your name to submit scores for your matches
+            </p>
+            <div className="space-y-2 max-h-96 overflow-y-auto">
+              {tournament.players.map((name, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => identifyAsPlayer(idx)}
+                  className={`w-full text-left px-4 py-3 rounded-lg border-2 transition-colors ${
+                    identifiedPlayer === idx
+                      ? 'border-indigo-600 bg-indigo-50'
+                      : 'border-gray-200 hover:border-indigo-300'
+                  }`}
+                >
+                  {name}
+                  {identifiedPlayer === idx && (
+                    <CheckCircle className="inline ml-2 text-indigo-600" size={18} />
+                  )}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={() => setShowIdentityModal(false)}
+              className="mt-4 w-full px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
 };
 
-const MatchCard = ({ match, players, onSubmit }) => {
-  const [scores, setScores] = useState({
-    team1: match.team1Score || '',
-    team2: match.team2Score || ''
-  });
-  const [matches, setMatches] = useState({
-    team1: match.team1Matches || '',
-    team2: match.team2Matches || ''
-  });
-  const [editing, setEditing] = useState(!match.submitted);
+const MatchCard = ({
+  match,
+  tournament,
+  roundIdx,
+  matchIdx,
+  identifiedPlayer,
+  isPlayerInMatch,
+  onSubmitScore,
+  onVerifyScore,
+  onDisputeScore,
+  onResolveDispute
+}) => {
+  const [team1Score, setTeam1Score] = useState('');
+  const [team2Score, setTeam2Score] = useState('');
+  const [team1Matches, setTeam1Matches] = useState(0);
+  const [team2Matches, setTeam2Matches] = useState(0);
+  const [showDisputeModal, setShowDisputeModal] = useState(false);
+  const [disputeReason, setDisputeReason] = useState('');
 
-  const team1Names = match.team1.map(p => players[p].name).join(' & ');
-  const team2Names = match.team2.map(p => players[p].name).join(' & ');
+  const { scoreSubmission } = match;
+  const canSubmit = identifiedPlayer !== null && isPlayerInMatch && scoreSubmission.status === 'none';
+  const canVerify = identifiedPlayer !== null && isPlayerInMatch && 
+                    scoreSubmission.status === 'pending' && 
+                    scoreSubmission.submittedBy !== identifiedPlayer;
+
+  useEffect(() => {
+    if (team1Score !== '') {
+      const score1 = parseInt(team1Score) || 0;
+      const score2 = 628 - score1;
+      setTeam2Score(score2.toString());
+    }
+  }, [team1Score]);
 
   const handleSubmit = () => {
-    onSubmit(match.id, scores.team1, scores.team2, matches.team1, matches.team2);
-    setEditing(false);
+    const score1 = parseInt(team1Score) || 0;
+    const score2 = parseInt(team2Score) || 0;
+    onSubmitScore(roundIdx, matchIdx, score1, score2, team1Matches, team2Matches);
+    setTeam1Score('');
+    setTeam2Score('');
+    setTeam1Matches(0);
+    setTeam2Matches(0);
+  };
+
+  const handleDispute = () => {
+    onDisputeScore(roundIdx, matchIdx, disputeReason);
+    setShowDisputeModal(false);
+    setDisputeReason('');
+  };
+
+  const getStatusIcon = () => {
+    switch (scoreSubmission.status) {
+      case 'none':
+        return <Clock className="text-gray-400" size={20} />;
+      case 'pending':
+        return <AlertCircle className="text-yellow-500" size={20} />;
+      case 'verified':
+        return <CheckCircle className="text-green-500" size={20} />;
+      case 'disputed':
+        return <XCircle className="text-red-500" size={20} />;
+      default:
+        return null;
+    }
+  };
+
+  const getStatusText = () => {
+    switch (scoreSubmission.status) {
+      case 'none':
+        return 'No score submitted';
+      case 'pending':
+        return 'Pending verification';
+      case 'verified':
+        return 'Score verified';
+      case 'disputed':
+        return 'Score disputed';
+      default:
+        return '';
+    }
   };
 
   return (
-    <div className={`p-4 rounded-lg shadow-md ${match.submitted ? 'bg-green-50' : 'bg-white'}`}>
-      <div className="flex justify-between items-start">
-        <div>
-          <p className="font-semibold">{team1Names}</p>
-          <p className="text-sm text-gray-500 vs">vs</p>
-          <p className="font-semibold">{team2Names}</p>
+    <div className="border-2 border-gray-200 rounded-lg p-4 mb-4">
+      <div className="flex justify-between items-start mb-3">
+        <div className="flex items-center gap-2">
+          <Table className="text-indigo-600" size={20} />
+          <span className="font-bold text-gray-800">Table {match.table}</span>
         </div>
-        {editing ? (
-          <button onClick={handleSubmit} className="text-green-500 hover:text-green-700">
-            <Check size={24} />
-          </button>
-        ) : (
-          <button onClick={() => setEditing(true)} className="text-blue-500 hover:text-blue-700">
-            <Edit2 size={20} />
-          </button>
-        )}
+        <div className="flex items-center gap-2">
+          {getStatusIcon()}
+          <span className="text-sm text-gray-600">{getStatusText()}</span>
+        </div>
       </div>
 
-      <div className="mt-2 grid grid-cols-2 gap-2 text-center">
-        {editing ? (
-          <>
-            <input
-              type="number"
-              value={scores.team1}
-              onChange={(e) => setScores({...scores, team1: e.target.value})}
-              placeholder="Score"
-              className="p-1 border rounded-md w-full"
-            />
-            <input
-              type="number"
-              value={scores.team2}
-              onChange={(e) => setScores({...scores, team2: e.target.value})}
-              placeholder="Score"
-              className="p-1 border rounded-md w-full"
-            />
-            <input
-              type="number"
-              value={matches.team1}
-              onChange={(e) => setMatches({...matches, team1: e.target.value})}
-              placeholder="Matches"
-              className="p-1 border rounded-md w-full"
-            />
-            <input
-              type="number"
-              value={matches.team2}
-              onChange={(e) => setMatches({...matches, team2: e.target.value})}
-              placeholder="Matches"
-              className="p-1 border rounded-md w-full"
-            />
-          </>
-        ) : (
-          <>
-            <div>
-              <p className="font-bold text-lg">{match.team1Score || 'N/A'}</p>
-              <p className="text-xs text-gray-500">({match.team1Matches} matches)</p>
-            </div>
-            <div>
-              <p className="font-bold text-lg">{match.team2Score || 'N/A'}</p>
-              <p className="text-xs text-gray-500">({match.team2Matches} matches)</p>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-};
-
-
-const Leaderboard = ({ players }) => {
-  const sortedPlayers = [...players].sort((a, b) => b.totalPoints - a.totalPoints);
-
-  return (
-    <div className="bg-white rounded-lg shadow-lg p-6">
-      <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">
-        <Award size={24} className="text-yellow-500" />
-        Leaderboard
-      </h2>
-      <table className="w-full text-left">
-        <thead>
-          <tr className="border-b">
-            <th className="p-2">Rank</th>
-            <th className="p-2">Player</th>
-            <th className="p-2">Points</th>
-            <th className="p-2">Matches Won</th>
-            <th className="p-2">Games Played</th>
-          </tr>
-        </thead>
-        <tbody>
-          {sortedPlayers.map((p, idx) => (
-            <tr key={p.id} className="border-b hover:bg-gray-50">
-              <td className="p-2 font-semibold">{idx + 1}</td>
-              <td className="p-2">{p.name}</td>
-              <td className="p-2">{p.totalPoints}</td>
-              <td className="p-2">{p.totalMatches}</td>
-              <td className="p-2">{p.gamesPlayed}</td>
-            </tr>
+      <div className="grid grid-cols-2 gap-4 mb-4">
+        <div className="bg-blue-50 p-3 rounded-lg">
+          <p className="text-xs font-semibold text-blue-800 mb-1">TEAM 1</p>
+          {match.team1.map(id => (
+            <p key={id} className="text-sm text-blue-900">{tournament.players[id]}</p>
           ))}
-        </tbody>
-      </table>
+        </div>
+        <div className="bg-green-50 p-3 rounded-lg">
+          <p className="text-xs font-semibold text-green-800 mb-1">TEAM 2</p>
+          {match.team2.map(id => (
+            <p key={id} className="text-sm text-green-900">{tournament.players[id]}</p>
+          ))}
+        </div>
+      </div>
+
+      {scoreSubmission.status === 'none' && canSubmit && (
+        <div className="space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Score</label>
+              <input
+                type="number"
+                min="0"
+                max="628"
+                value={team1Score}
+                onChange={(e) => setTeam1Score(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                placeholder="0-628"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Score</label>
+              <input
+                type="number"
+                min="0"
+                max="628"
+                value={team2Score}
+                onChange={(e) => setTeam2Score(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                placeholder="Auto-calculated"
+              />
+            </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Matches</label>
+              <input
+                type="number"
+                min="0"
+                max="4"
+                value={team1Matches}
+                onChange={(e) => setTeam1Matches(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Matches</label>
+              <input
+                type="number"
+                min="0"
+                max="4"
+                value={team2Matches}
+                onChange={(e) => setTeam2Matches(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+          <button
+            onClick={handleSubmit}
+            className="w-full px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+          >
+            Submit Score
+          </button>
+        </div>
+      )}
+
+      {scoreSubmission.status === 'pending' && (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-2 text-sm mb-3">
+            <div>
+              <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
+              <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
+              <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+            </div>
+          </div>
+          {canVerify && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => onVerifyScore(roundIdx, matchIdx)}
+                className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
+              >
+                ✓ Confirm
+              </button>
+              <button
+                onClick={() => setShowDisputeModal(true)}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                ✗ Dispute
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {scoreSubmission.status === 'verified' && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+          <div className="grid grid-cols-2 gap-2 text-sm">
+            <div>
+              <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
+              <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+            </div>
+            <div>
+              <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
+              <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {scoreSubmission.status === 'disputed' && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
+          <p className="text-sm font-medium text-red-800 mb-2">⚠️ Score Disputed</p>
+          <p className="text-sm text-red-700 mb-2">{scoreSubmission.disputeReason}</p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onResolveDispute(roundIdx, matchIdx, true)}
+              className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+            >
+              Accept Score
+            </button>
+            <button
+              onClick={() => onResolveDispute(roundIdx, matchIdx, false)}
+              className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+            >
+              Reset
+            </button>
+          </div>
+        </div>
+      )}
+
+      {showDisputeModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <h3 className="text-xl font-bold text-gray-800 mb-4">Dispute Score</h3>
+            <textarea
+              value={disputeReason}
+              onChange={(e) => setDisputeReason(e.target.value)}
+              placeholder="Explain why you're disputing this score..."
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
+              rows="4"
+            />
+            <div className="flex gap-2">
+              <button
+                onClick={handleDispute}
+                className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
+              >
+                Submit Dispute
+              </button>
+              <button
+                onClick={() => setShowDisputeModal(false)}
+                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
 
-export default JassTournamentApp;
+export default App;
