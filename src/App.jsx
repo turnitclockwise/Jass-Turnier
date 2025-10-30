@@ -1,126 +1,310 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck } from 'lucide-react';
+import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, Play, Award, X } from 'lucide-react';
+import { ref, set, get, onValue, update, off } from 'firebase/database';
+import { database } from './firebase';
+
+// Firebase Service using modern Firebase v9+ SDK
+const FirebaseService = {
+  generateId() {
+    return Math.random().toString(36).substring(2, 8).toUpperCase();
+  },
+  
+  async createTournament(tournamentData) {
+    const tournamentId = this.generateId();
+    const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
+    
+    const tournament = {
+      ...tournamentData,
+      id: tournamentId,
+      createdAt: Date.now(),
+      expiresAt: expiresAt,
+      creatorId: 'temp-creator-id',
+      currentAdmin: 'temp-creator-id',
+      status: 'active',
+      connectedUsers: {},
+      version: 1
+    };
+    
+    try {
+      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+      await set(tournamentRef, tournament);
+      console.log('✅ Tournament created:', tournamentId);
+      return tournament;
+    } catch (error) {
+      console.error('❌ Error creating tournament:', error);
+      throw error;
+    }
+  },
+  
+  async getTournament(tournamentId) {
+    try {
+      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+      const snapshot = await get(tournamentRef);
+      
+      if (snapshot.exists()) {
+        console.log('✅ Tournament loaded:', tournamentId);
+        return snapshot.val();
+      } else {
+        console.warn('❌ Tournament not found:', tournamentId);
+        return null;
+      }
+    } catch (error) {
+      console.error('❌ Error loading tournament:', error);
+      return null;
+    }
+  },
+  
+  subscribeTournament(tournamentId, callback) {
+    try {
+      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+      
+      onValue(tournamentRef, (snapshot) => {
+        if (snapshot.exists()) {
+          callback(snapshot.val());
+        }
+      }, (error) => {
+        console.error('❌ Error subscribing to tournament:', error);
+      });
+      
+      return () => off(tournamentRef);
+    } catch (error) {
+      console.error('❌ Error setting up subscription:', error);
+      return () => {};
+    }
+  },
+  
+  async updateMatch(tournamentId, roundIndex, matchId, matchData) {
+    try {
+      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+      const snapshot = await get(tournamentRef);
+      const tournament = snapshot.val();
+      
+      if (tournament && tournament.schedule && tournament.schedule[roundIndex]) {
+        const matchIndex = tournament.schedule[roundIndex].matches.findIndex(m => m.id === matchId);
+        if (matchIndex !== -1) {
+          const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`);
+          await update(matchRef, matchData);
+          console.log('✅ Match updated');
+        }
+      }
+    } catch (error) {
+      console.error('❌ Error updating match:', error);
+    }
+  },
+  
+  async updatePlayerStats(tournamentId, playerStats) {
+    try {
+      const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
+      await set(statsRef, playerStats);
+      console.log('✅ Player stats updated');
+    } catch (error) {
+      console.error('❌ Error updating player stats:', error);
+    }
+  },
+  
+  async updateCurrentRound(tournamentId, roundIndex) {
+    try {
+      const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
+      await set(roundRef, roundIndex);
+      console.log('✅ Current round updated');
+    } catch (error) {
+      console.error('❌ Error updating current round:', error);
+    }
+  }
+};
 
 const App = () => {
-  const [view, setView] = useState('setup');
+  const [view, setView] = useState('home');
   const [numTables, setNumTables] = useState(2);
   const [playerNames, setPlayerNames] = useState(['']);
   const [tournament, setTournament] = useState(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [identifiedPlayer, setIdentifiedPlayer] = useState(null);
   const [showIdentityModal, setShowIdentityModal] = useState(false);
+  const [tournamentId, setTournamentId] = useState(null);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [joinId, setJoinId] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (!tournamentId) return;
+    
+    const unsubscribe = FirebaseService.subscribeTournament(tournamentId, (updatedTournament) => {
+      setTournament({
+        players: updatedTournament.players,
+        schedule: updatedTournament.schedule,
+        playerStats: updatedTournament.playerStats
+      });
+      setCurrentRound(updatedTournament.currentRound || 0);
+    });
+    
+    return unsubscribe;
+  }, [tournamentId]);
 
   const generateSchedule = (players, tables) => {
     const n = players.length;
     const rounds = n - 1;
-    const playersPerTable = 4;
-    const totalPlayers = tables * playersPerTable;
     const schedule = [];
-
-    const partnerships = new Set();
-    const opponentMatchups = new Map();
-
+    
+    const maxPlayersPerRound = tables * 4;
+    const playersPerRound = Math.floor(Math.min(n, maxPlayersPerRound) / 4) * 4;
+    const breaksPerRound = n - playersPerRound;
+    
+    const usedPartnerships = new Set();
+    const usedOpponents = new Map();
+    
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 1; j < n; j++) {
+        usedOpponents.set(`${i}-${j}`, 0);
+      }
+    }
+    
+    const breakCount = new Array(n).fill(0);
+    const lastBreak = new Array(n).fill(-2);
+    
     for (let round = 0; round < rounds; round++) {
+      const roundMatches = [];
+      let available = [...Array(n).keys()];
       const sitting = [];
-      const availablePlayers = [];
-
-      if (n > totalPlayers) {
-        const numSitting = n - totalPlayers;
-        for (let i = 0; i < numSitting; i++) {
-          sitting.push((round + i) % n);
+      
+      const breakPriority = available.map(p => ({
+        player: p,
+        breaks: breakCount[p],
+        lastBreak: lastBreak[p],
+        priorityScore: -breakCount[p] * 1000 + (lastBreak[p] === round - 1 ? -10000 : 0)
+      })).sort((a, b) => b.priorityScore - a.priorityScore);
+      
+      for (let i = 0; i < breaksPerRound; i++) {
+        let selectedPlayer = null;
+        for (const candidate of breakPriority) {
+          if (!sitting.includes(candidate.player)) {
+            selectedPlayer = candidate.player;
+            break;
+          }
+        }
+        if (selectedPlayer !== null) {
+          sitting.push(selectedPlayer);
+          breakCount[selectedPlayer]++;
+          lastBreak[selectedPlayer] = round;
         }
       }
-
-      for (let i = 0; i < n; i++) {
-        if (!sitting.includes(i)) {
-          availablePlayers.push(i);
-        }
+      
+      available = available.filter(p => !sitting.includes(p));
+      
+      for (let i = available.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [available[i], available[j]] = [available[j], available[i]];
       }
-
-      const matches = [];
+      
       const used = new Set();
-
-      for (let table = 0; table < tables && used.size < availablePlayers.length; table++) {
-        const remaining = availablePlayers.filter(p => !used.has(p));
+      const maxMatches = Math.floor(available.length / 4);
+      
+      for (let t = 0; t < maxMatches; t++) {
+        let bestMatch = null;
+        let bestScore = -Infinity;
         
-        if (remaining.length >= 4) {
-          let team1 = null;
-          let team2 = null;
-
-          for (let i = 0; i < remaining.length - 1; i++) {
-            for (let j = i + 1; j < remaining.length; j++) {
-              const p1 = remaining[i];
-              const p2 = remaining[j];
-              const partnerKey = `${Math.min(p1, p2)}-${Math.max(p1, p2)}`;
-              
-              if (!partnerships.has(partnerKey) && !team1) {
-                team1 = [p1, p2];
-                partnerships.add(partnerKey);
-                used.add(p1);
-                used.add(p2);
-                break;
-              }
+        for (let attempts = 0; attempts < 200; attempts++) {
+          const remainingPlayers = available.filter(p => !used.has(p));
+          if (remainingPlayers.length < 4) break;
+          
+          const shuffled = [...remainingPlayers].sort(() => Math.random() - 0.5);
+          const p1 = shuffled[0];
+          const p2 = shuffled[1];
+          const p3 = shuffled[2];
+          const p4 = shuffled[3];
+          
+          const configs = [
+            { team1: [p1, p2], team2: [p3, p4] },
+            { team1: [p1, p3], team2: [p2, p4] },
+            { team1: [p1, p4], team2: [p2, p3] }
+          ];
+          
+          for (const config of configs) {
+            const t1 = config.team1.sort((a, b) => a - b);
+            const t2 = config.team2.sort((a, b) => a - b);
+            
+            const p1Key = `${t1[0]}-${t1[1]}`;
+            const p2Key = `${t2[0]}-${t2[1]}`;
+            const opp1Key = `${Math.min(t1[0], t2[0])}-${Math.max(t1[0], t2[0])}`;
+            const opp2Key = `${Math.min(t1[0], t2[1])}-${Math.max(t1[0], t2[1])}`;
+            const opp3Key = `${Math.min(t1[1], t2[0])}-${Math.max(t1[1], t2[0])}`;
+            const opp4Key = `${Math.min(t1[1], t2[1])}-${Math.max(t1[1], t2[1])}`;
+            
+            const p1Used = usedPartnerships.has(p1Key);
+            const p2Used = usedPartnerships.has(p2Key);
+            
+            if (p1Used && p2Used && round < rounds / 2) {
+              continue;
             }
-            if (team1) break;
-          }
-
-          const remaining2 = remaining.filter(p => !used.has(p));
-          if (remaining2.length >= 2) {
-            for (let i = 0; i < remaining2.length - 1; i++) {
-              for (let j = i + 1; j < remaining2.length; j++) {
-                const p1 = remaining2[i];
-                const p2 = remaining2[j];
-                const partnerKey = `${Math.min(p1, p2)}-${Math.max(p1, p2)}`;
-                
-                if (!partnerships.has(partnerKey)) {
-                  team2 = [p1, p2];
-                  partnerships.add(partnerKey);
-                  used.add(p1);
-                  used.add(p2);
-                  break;
-                }
-              }
-              if (team2) break;
+            
+            const partnershipPenalty = (p1Used ? 50 : 0) + (p2Used ? 50 : 0);
+            const oppScore = (
+              (usedOpponents.get(opp1Key) || 0) +
+              (usedOpponents.get(opp2Key) || 0) +
+              (usedOpponents.get(opp3Key) || 0) +
+              (usedOpponents.get(opp4Key) || 0)
+            );
+            
+            const score = -oppScore - partnershipPenalty;
+            
+            if (score > bestScore) {
+              bestScore = score;
+              bestMatch = {
+                team1: t1,
+                team2: t2,
+                oppKeys: [opp1Key, opp2Key, opp3Key, opp4Key],
+                partnerKeys: [p1Key, p2Key]
+              };
             }
-          }
-
-          if (team1 && team2) {
-            matches.push({
-              id: `r${round}-m${table}`,
-              table: table + 1,
-              team1: team1,
-              team2: team2,
-              scoreSubmission: {
-                status: 'none',
-                team1Score: null,
-                team2Score: null,
-                team1Matches: 0,
-                team2Matches: 0,
-                submittedBy: null,
-                submittedAt: null,
-                verifiedBy: null,
-                verifiedAt: null,
-                disputedBy: null,
-                disputeReason: '',
-                disputedAt: null,
-                autoAccepted: false
-              }
-            });
           }
         }
+        
+        if (bestMatch) {
+          roundMatches.push({
+            id: `r${round}-m${t}`,
+            table: t + 1,
+            team1: bestMatch.team1,
+            team2: bestMatch.team2,
+            scoreSubmission: {
+              status: 'none',
+              team1Score: null,
+              team2Score: null,
+              team1Matches: 0,
+              team2Matches: 0,
+              submittedBy: null,
+              submittedAt: null,
+              verifiedBy: null,
+              verifiedAt: null,
+              disputedBy: null,
+              disputeReason: '',
+              disputedAt: null,
+              autoAccepted: false
+            }
+          });
+          
+          bestMatch.partnerKeys.forEach(key => usedPartnerships.add(key));
+          bestMatch.oppKeys.forEach(key => {
+            usedOpponents.set(key, (usedOpponents.get(key) || 0) + 1);
+          });
+          
+          bestMatch.team1.forEach(p => used.add(p));
+          bestMatch.team2.forEach(p => used.add(p));
+        } else {
+          break;
+        }
       }
-
+      
       schedule.push({
         roundNumber: round + 1,
-        matches,
-        sitting
+        matches: roundMatches,
+        sitting: sitting
       });
     }
-
+    
     return schedule;
   };
 
-  const startTournament = () => {
+  const startTournament = async () => {
     const validPlayers = playerNames.filter(name => name.trim() !== '');
     const minPlayers = numTables * 4;
 
@@ -138,13 +322,47 @@ const App = () => {
       gamesPlayed: 0
     }));
 
-    setTournament({
+    const tournamentData = {
       players: validPlayers,
       playerStats,
       schedule,
-      createdAt: Date.now()
-    });
-    setView('tournament');
+      numTables,
+      currentRound: 0
+    };
+
+    try {
+      const createdTournament = await FirebaseService.createTournament(tournamentData);
+      setTournamentId(createdTournament.id);
+      setTournament(tournamentData);
+      setView('tournament');
+      setShowShareModal(true);
+    } catch (error) {
+      console.error('Firebase error:', error);
+      alert('Error creating tournament. Please check your Firebase configuration.');
+    }
+  };
+
+  const joinTournamentById = async (id) => {
+    setLoading(true);
+    try {
+      const tournamentData = await FirebaseService.getTournament(id);
+      if (tournamentData) {
+        setTournamentId(id);
+        setTournament({
+          players: tournamentData.players,
+          schedule: tournamentData.schedule,
+          playerStats: tournamentData.playerStats
+        });
+        setCurrentRound(tournamentData.currentRound || 0);
+        setView('tournament');
+      } else {
+        alert(`Tournament "${id}" not found`);
+      }
+    } catch (error) {
+      alert('Error joining tournament');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const addPlayer = () => {
@@ -171,7 +389,7 @@ const App = () => {
     return [...match.team1, ...match.team2].includes(identifiedPlayer);
   };
 
-  const submitScore = (roundIdx, matchIdx, team1Score, team2Score, team1Matches, team2Matches) => {
+  const submitScore = async (roundIdx, matchIdx, team1Score, team2Score, team1Matches, team2Matches) => {
     const match = tournament.schedule[roundIdx].matches[matchIdx];
     
     if (team1Score + team2Score !== 628) {
@@ -205,9 +423,15 @@ const App = () => {
 
     updatedTournament.schedule[roundIdx].matches[matchIdx] = updatedMatch;
     setTournament(updatedTournament);
+    
+    if (tournamentId) {
+      await FirebaseService.updateMatch(tournamentId, roundIdx, match.id, {
+        scoreSubmission: updatedMatch.scoreSubmission
+      });
+    }
   };
 
-  const verifyScore = (roundIdx, matchIdx) => {
+  const verifyScore = async (roundIdx, matchIdx) => {
     const updatedTournament = { ...tournament };
     const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
     
@@ -232,9 +456,16 @@ const App = () => {
     });
 
     setTournament(updatedTournament);
+    
+    if (tournamentId) {
+      await FirebaseService.updateMatch(tournamentId, roundIdx, match.id, {
+        scoreSubmission: match.scoreSubmission
+      });
+      await FirebaseService.updatePlayerStats(tournamentId, updatedTournament.playerStats);
+    }
   };
 
-  const disputeScore = (roundIdx, matchIdx, reason) => {
+  const disputeScore = async (roundIdx, matchIdx, reason) => {
     const updatedTournament = { ...tournament };
     const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
     
@@ -244,15 +475,27 @@ const App = () => {
     match.scoreSubmission.disputedAt = Date.now();
 
     setTournament(updatedTournament);
+    
+    if (tournamentId) {
+      await FirebaseService.updateMatch(tournamentId, roundIdx, match.id, {
+        scoreSubmission: match.scoreSubmission
+      });
+    }
   };
 
-  const resolveDispute = (roundIdx, matchIdx, acceptScore) => {
+  const resolveDispute = async (roundIdx, matchIdx, acceptScore) => {
     if (acceptScore) {
-      verifyScore(roundIdx, matchIdx);
+      await verifyScore(roundIdx, matchIdx);
     } else {
       const updatedTournament = { ...tournament };
       updatedTournament.schedule[roundIdx].matches[matchIdx].scoreSubmission.status = 'none';
       setTournament(updatedTournament);
+      
+      if (tournamentId) {
+        await FirebaseService.updateMatch(tournamentId, roundIdx, updatedTournament.schedule[roundIdx].matches[matchIdx].id, {
+          scoreSubmission: updatedTournament.schedule[roundIdx].matches[matchIdx].scoreSubmission
+        });
+      }
     }
   };
 
@@ -265,6 +508,63 @@ const App = () => {
       return b.totalMatches - a.totalMatches;
     });
   };
+
+  if (view === 'home') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-8">
+        <div className="max-w-md mx-auto">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <Trophy className="text-yellow-500 mx-auto mb-4" size={64} />
+            <h1 className="text-4xl font-bold text-gray-800 mb-2">Jass Tournament</h1>
+            <p className="text-gray-600 mb-8">Manage your card game tournament</p>
+            
+            <div className="space-y-4">
+              <button
+                onClick={() => setView('setup')}
+                className="w-full py-4 bg-green-500 text-white rounded-lg hover:bg-green-600 flex items-center justify-center gap-3 text-lg font-semibold"
+              >
+                <PlusCircle size={24} />
+                Create New Tournament
+              </button>
+              
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <div className="w-full border-t border-gray-300"></div>
+                </div>
+                <div className="relative flex justify-center text-sm">
+                  <span className="px-2 bg-white text-gray-500">or</span>
+                </div>
+              </div>
+              
+              <div className="space-y-2">
+                <input
+                  type="text"
+                  value={joinId}
+                  onChange={(e) => setJoinId(e.target.value.toUpperCase())}
+                  onKeyPress={(e) => e.key === 'Enter' && joinId.length === 6 && joinTournamentById(joinId)}
+                  placeholder="Enter Tournament ID"
+                  maxLength={6}
+                  className="w-full px-4 py-3 border-2 border-gray-300 rounded-lg text-center text-lg font-mono tracking-widest uppercase focus:ring-2 focus:ring-indigo-500"
+                />
+                <button
+                  onClick={() => joinTournamentById(joinId)}
+                  disabled={loading || joinId.length !== 6}
+                  className="w-full py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:bg-gray-300 flex items-center justify-center gap-2 font-semibold"
+                >
+                  {loading ? 'Loading...' : (
+                    <>
+                      <Users size={20} />
+                      Join Tournament
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   if (view === 'setup') {
     return (
@@ -286,7 +586,7 @@ const App = () => {
                 max="5"
                 value={numTables}
                 onChange={(e) => setNumTables(parseInt(e.target.value))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               />
               <p className="text-sm text-gray-500 mt-1">
                 Minimum players needed: {numTables * 4}
@@ -304,7 +604,7 @@ const App = () => {
                     value={name}
                     onChange={(e) => updatePlayerName(idx, e.target.value)}
                     placeholder={`Player ${idx + 1}`}
-                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                    className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                   {playerNames.length > 1 && (
                     <button
@@ -351,12 +651,24 @@ const App = () => {
                 <p className="text-sm text-gray-600">
                   Round {currentRound + 1} of {tournament.schedule.length}
                 </p>
+                {tournamentId && (
+                  <p className="text-xs text-indigo-600 font-mono">ID: {tournamentId}</p>
+                )}
               </div>
             </div>
             <div className="flex gap-2">
+              {tournamentId && (
+                <button
+                  onClick={() => setShowShareModal(true)}
+                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                >
+                  <Share2 size={18} />
+                  Share
+                </button>
+              )}
               <button
                 onClick={() => setShowIdentityModal(true)}
-                className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
               >
                 <UserCheck size={18} />
                 {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
@@ -364,21 +676,20 @@ const App = () => {
             </div>
           </div>
 
-          <div className="flex gap-2 mt-4">
-            <button
-              onClick={() => setCurrentRound(Math.max(0, currentRound - 1))}
-              disabled={currentRound === 0}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-            >
-              Previous Round
-            </button>
-            <button
-              onClick={() => setCurrentRound(Math.min(tournament.schedule.length - 1, currentRound + 1))}
-              disabled={currentRound === tournament.schedule.length - 1}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 disabled:opacity-50"
-            >
-              Next Round
-            </button>
+          <div className="flex gap-2 mt-4 flex-wrap">
+            {tournament.schedule.map((_, idx) => (
+              <button
+                key={idx}
+                onClick={() => setCurrentRound(idx)}
+                className={`px-3 py-1 rounded ${
+                  currentRound === idx
+                    ? 'bg-indigo-600 text-white'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                R{idx + 1}
+              </button>
+            ))}
           </div>
         </div>
 
@@ -428,20 +739,6 @@ const App = () => {
                     }`}
                   >
                     <div className="flex justify-between items-center">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="font-bold text-gray-700">#{idx + 1}</span>
-                          <span className={`font-medium ${idx === 0 ? 'text-yellow-700' : 'text-gray-800'}`}>
-                            {player.name}
-                          </span>
-                          {player.id === identifiedPlayer && (
-                            <UserCheck size={14} className="text-indigo-600" />
-                          )}
-                        </div>
-                        <div className="text-sm text-gray-600 mt-1">
-                          {player.gamesPlayed} games played
-                        </div>
-                      </div>
                       <div className="text-right">
                         <div className="font-bold text-lg text-gray-800">{player.totalPoints}</div>
                         <div className="text-sm text-gray-600">
@@ -488,6 +785,51 @@ const App = () => {
             >
               Cancel
             </button>
+          </div>
+        </div>
+      )}
+
+      {showShareModal && tournamentId && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                <Share2 size={24} className="text-indigo-600" />
+                Share Tournament
+              </h2>
+              <button onClick={() => setShowShareModal(false)} className="text-gray-500 hover:text-gray-700">
+                <X size={24} />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-700 mb-2">Tournament ID:</p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={tournamentId}
+                    readOnly
+                    className="flex-1 px-3 py-2 bg-gray-50 border border-gray-300 rounded text-lg font-mono text-center"
+                  />
+                  <button
+                    onClick={() => {
+                      navigator.clipboard.writeText(tournamentId);
+                      alert('ID copied!');
+                    }}
+                    className="px-4 py-2 bg-indigo-600 text-white rounded hover:bg-indigo-700"
+                  >
+                    Copy
+                  </button>
+                </div>
+              </div>
+              
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                <p className="text-xs text-gray-700">
+                  ⏱️ This tournament will expire in 24 hours
+                </p>
+              </div>
+            </div>
           </div>
         </div>
       )}
