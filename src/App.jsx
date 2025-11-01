@@ -1,15 +1,35 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, Play, Award, X } from 'lucide-react';
-import { ref, set, get, onValue, update, off } from 'firebase/database';
-import { database } from './firebase';
 
-// Firebase Service using modern Firebase v9+ SDK
+// Firebase Service - Ready for integration with your firebase.js
+// In your actual project, replace this with:
+// import { ref, set, get, onValue, update, off } from 'firebase/database';
+// import { database } from './firebase';
+
 const FirebaseService = {
+  enabled: false, // Set to true when Firebase is properly configured
+  database: null,
+  
+  // Simulated Firebase functions for Claude Artifacts
+  // Replace these with real Firebase calls in your project
+  
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   },
   
   async createTournament(tournamentData) {
+    if (!this.enabled) {
+      console.warn('⚠️ Firebase disabled - running in local mode');
+      return {
+        ...tournamentData,
+        id: this.generateId(),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+      };
+    }
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
     const tournamentId = this.generateId();
     const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
     
@@ -25,91 +45,88 @@ const FirebaseService = {
       version: 1
     };
     
-    try {
-      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-      await set(tournamentRef, tournament);
-      console.log('✅ Tournament created:', tournamentId);
-      return tournament;
-    } catch (error) {
-      console.error('❌ Error creating tournament:', error);
-      throw error;
-    }
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    await set(tournamentRef, tournament);
+    return tournament;
+    */
+    
+    throw new Error('Firebase not configured');
   },
   
   async getTournament(tournamentId) {
-    try {
-      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-      const snapshot = await get(tournamentRef);
-      
-      if (snapshot.exists()) {
-        console.log('✅ Tournament loaded:', tournamentId);
-        return snapshot.val();
-      } else {
-        console.warn('❌ Tournament not found:', tournamentId);
-        return null;
-      }
-    } catch (error) {
-      console.error('❌ Error loading tournament:', error);
+    if (!this.enabled) {
+      console.warn('⚠️ Firebase disabled - cannot load tournament');
       return null;
     }
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    const snapshot = await get(tournamentRef);
+    return snapshot.exists() ? snapshot.val() : null;
+    */
+    
+    return null;
   },
   
   subscribeTournament(tournamentId, callback) {
-    try {
-      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-      
-      onValue(tournamentRef, (snapshot) => {
-        if (snapshot.exists()) {
-          callback(snapshot.val());
-        }
-      }, (error) => {
-        console.error('❌ Error subscribing to tournament:', error);
-      });
-      
-      return () => off(tournamentRef);
-    } catch (error) {
-      console.error('❌ Error setting up subscription:', error);
+    if (!this.enabled) {
       return () => {};
     }
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    
+    onValue(tournamentRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+    
+    return () => off(tournamentRef);
+    */
+    
+    return () => {};
   },
   
   async updateMatch(tournamentId, roundIndex, matchId, matchData) {
-    try {
-      const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-      const snapshot = await get(tournamentRef);
-      const tournament = snapshot.val();
-      
-      if (tournament && tournament.schedule && tournament.schedule[roundIndex]) {
-        const matchIndex = tournament.schedule[roundIndex].matches.findIndex(m => m.id === matchId);
-        if (matchIndex !== -1) {
-          const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`);
-          await update(matchRef, matchData);
-          console.log('✅ Match updated');
-        }
+    if (!this.enabled) return;
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    const snapshot = await get(tournamentRef);
+    const tournament = snapshot.val();
+    
+    if (tournament && tournament.schedule && tournament.schedule[roundIndex]) {
+      const matchIndex = tournament.schedule[roundIndex].matches.findIndex(m => m.id === matchId);
+      if (matchIndex !== -1) {
+        const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`);
+        await update(matchRef, matchData);
       }
-    } catch (error) {
-      console.error('❌ Error updating match:', error);
     }
+    */
   },
   
   async updatePlayerStats(tournamentId, playerStats) {
-    try {
-      const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
-      await set(statsRef, playerStats);
-      console.log('✅ Player stats updated');
-    } catch (error) {
-      console.error('❌ Error updating player stats:', error);
-    }
+    if (!this.enabled) return;
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
+    const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
+    await set(statsRef, playerStats);
+    */
   },
   
   async updateCurrentRound(tournamentId, roundIndex) {
-    try {
-      const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
-      await set(roundRef, roundIndex);
-      console.log('✅ Current round updated');
-    } catch (error) {
-      console.error('❌ Error updating current round:', error);
-    }
+    if (!this.enabled) return;
+    
+    // REPLACE THIS IN YOUR PROJECT WITH:
+    /*
+    const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
+    await set(roundRef, roundIndex);
+    */
   }
 };
 
@@ -125,6 +142,8 @@ const App = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [loading, setLoading] = useState(false);
+  const [rankingMode, setRankingMode] = useState('total'); // 'total' or 'average'
+  const [showExtendedStats, setShowExtendedStats] = useState(false);
 
   useEffect(() => {
     if (!tournamentId) return;
@@ -319,7 +338,13 @@ const App = () => {
       name,
       totalPoints: 0,
       totalMatches: 0,
-      gamesPlayed: 0
+      gamesPlayed: 0,
+      wins: 0,
+      losses: 0,
+      draws: 0,
+      highestScore: 0,
+      lowestScore: null,
+      pointsAgainst: 0
     }));
 
     const tournamentData = {
@@ -330,15 +355,25 @@ const App = () => {
       currentRound: 0
     };
 
-    try {
-      const createdTournament = await FirebaseService.createTournament(tournamentData);
-      setTournamentId(createdTournament.id);
+    if (FirebaseService.enabled) {
+      try {
+        const createdTournament = await FirebaseService.createTournament(tournamentData);
+        setTournamentId(createdTournament.id);
+        setTournament(tournamentData);
+        setView('tournament');
+        setShowShareModal(true);
+      } catch (error) {
+        console.error('Firebase error:', error);
+        setTournament(tournamentData);
+        setView('tournament');
+      }
+    } else {
+      // Local mode without Firebase
+      const localId = FirebaseService.generateId();
+      setTournamentId(localId);
       setTournament(tournamentData);
       setView('tournament');
       setShowShareModal(true);
-    } catch (error) {
-      console.error('Firebase error:', error);
-      alert('Error creating tournament. Please check your Firebase configuration.');
     }
   };
 
@@ -441,18 +476,56 @@ const App = () => {
 
     const { team1Score, team2Score, team1Matches, team2Matches } = match.scoreSubmission;
     
+    // Update Team 1 players
     match.team1.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
       player.totalPoints += team1Score;
       player.totalMatches += team1Matches;
       player.gamesPlayed += 1;
+      player.pointsAgainst += team2Score;
+      
+      // Update highest/lowest scores
+      if (team1Score > player.highestScore) {
+        player.highestScore = team1Score;
+      }
+      if (player.lowestScore === null || team1Score < player.lowestScore) {
+        player.lowestScore = team1Score;
+      }
+      
+      // Update Win/Loss/Draw
+      if (team1Score > team2Score) {
+        player.wins += 1;
+      } else if (team1Score < team2Score) {
+        player.losses += 1;
+      } else {
+        player.draws += 1;
+      }
     });
 
+    // Update Team 2 players
     match.team2.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
       player.totalPoints += team2Score;
       player.totalMatches += team2Matches;
       player.gamesPlayed += 1;
+      player.pointsAgainst += team1Score;
+      
+      // Update highest/lowest scores
+      if (team2Score > player.highestScore) {
+        player.highestScore = team2Score;
+      }
+      if (player.lowestScore === null || team2Score < player.lowestScore) {
+        player.lowestScore = team2Score;
+      }
+      
+      // Update Win/Loss/Draw
+      if (team2Score > team1Score) {
+        player.wins += 1;
+      } else if (team2Score < team1Score) {
+        player.losses += 1;
+      } else {
+        player.draws += 1;
+      }
     });
 
     setTournament(updatedTournament);
@@ -504,6 +577,19 @@ const App = () => {
     return [...tournament.playerStats].sort((a, b) => {
       if (b.totalPoints !== a.totalPoints) {
         return b.totalPoints - a.totalPoints;
+      }
+      return b.totalMatches - a.totalMatches;
+    });
+  };
+
+  const getStandingsByAverage = () => {
+    if (!tournament) return [];
+    return [...tournament.playerStats].sort((a, b) => {
+      const avgA = a.gamesPlayed > 0 ? a.totalPoints / a.gamesPlayed : 0;
+      const avgB = b.gamesPlayed > 0 ? b.totalPoints / b.gamesPlayed : 0;
+      
+      if (avgB !== avgA) {
+        return avgB - avgA;
       }
       return b.totalMatches - a.totalMatches;
     });
@@ -637,7 +723,7 @@ const App = () => {
   }
 
   const currentRoundData = tournament.schedule[currentRound];
-  const standings = getStandings();
+  const standings = rankingMode === 'total' ? getStandings() : getStandingsByAverage();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
