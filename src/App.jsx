@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
 const FirebaseService = {
-  enabled: false,
+  enabled: true,
   
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -50,9 +50,65 @@ const App = () => {
   const [rankingMode, setRankingMode] = useState('total');
   const [showExtendedStats, setShowExtendedStats] = useState(false);
 
+  // 🔄 Auto-save to localStorage whenever tournament data changes
+  useEffect(() => {
+    if (tournament && tournamentId) {
+      const dataToSave = {
+        tournamentId,
+        tournament,
+        currentRound,
+        identifiedPlayer,
+        view,
+        rankingMode,
+        showExtendedStats,
+        savedAt: Date.now()
+      };
+      localStorage.setItem('jassTournament', JSON.stringify(dataToSave));
+      console.log('💾 Tournament saved to localStorage');
+    }
+  }, [tournament, tournamentId, currentRound, identifiedPlayer, view, rankingMode, showExtendedStats]);
+
+  // 📂 Load from localStorage on app start
+  useEffect(() => {
+    const loadSavedTournament = () => {
+      try {
+        const saved = localStorage.getItem('jassTournament');
+        if (saved) {
+          const data = JSON.parse(saved);
+          
+          // Check if data is not too old (24 hours)
+          const hoursSinceSave = (Date.now() - data.savedAt) / (1000 * 60 * 60);
+          if (hoursSinceSave > 24) {
+            console.log('🗑️ Saved tournament expired (>24h), clearing...');
+            localStorage.removeItem('jassTournament');
+            return;
+          }
+          
+          console.log('📂 Loading saved tournament from localStorage');
+          setTournamentId(data.tournamentId);
+          setTournament(data.tournament);
+          setCurrentRound(data.currentRound);
+          setIdentifiedPlayer(data.identifiedPlayer);
+          setView(data.view);
+          setRankingMode(data.rankingMode || 'total');
+          setShowExtendedStats(data.showExtendedStats || false);
+          
+          console.log('✅ Tournament restored:', data.tournamentId);
+        }
+      } catch (error) {
+        console.error('❌ Error loading saved tournament:', error);
+        localStorage.removeItem('jassTournament');
+      }
+    };
+    
+    loadSavedTournament();
+  }, []);
+
+  // 🔗 Firebase subscription (when Firebase is enabled)
   useEffect(() => {
     if (!tournamentId) return;
     const unsubscribe = FirebaseService.subscribeTournament(tournamentId, (updatedTournament) => {
+      console.log('🔄 Tournament updated from Firebase');
       setTournament({
         players: updatedTournament.players,
         schedule: updatedTournament.schedule,
@@ -62,6 +118,20 @@ const App = () => {
     });
     return unsubscribe;
   }, [tournamentId]);
+
+  // 🧹 Clear tournament data (Exit Tournament)
+  const clearTournament = () => {
+    localStorage.removeItem('jassTournament');
+    setView('home');
+    setTournament(null);
+    setTournamentId(null);
+    setPlayers([]);
+    setCurrentRound(0);
+    setIdentifiedPlayer(null);
+    setRankingMode('total');
+    setShowExtendedStats(false);
+    console.log('🧹 Tournament cleared from localStorage');
+  };
 
   const generateSchedule = (players, tables) => {
     const n = players.length;
@@ -629,6 +699,16 @@ const App = () => {
                   Share
                 </button>
               )}
+              <button
+                onClick={() => {
+                  if (confirm('Are you sure you want to exit this tournament? All local data will be cleared.')) {
+                    clearTournament();
+                  }
+                }}
+                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+              >
+                Exit
+              </button>
               <button
                 onClick={() => setShowIdentityModal(true)}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
