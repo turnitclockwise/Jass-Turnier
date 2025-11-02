@@ -1,38 +1,65 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
+import { database } from './firebase';
+import { ref, set, get, onValue, off } from "firebase/database";
+
 const FirebaseService = {
   enabled: true,
-  
+
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   },
-  
-  async createTournament(tournamentData) {
+
+  async createTournament(tournamentId, tournamentData) {
     if (!this.enabled) {
-      return {
-        ...tournamentData,
-        id: this.generateId(),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
-      };
+      return { ...tournamentData, id: this.generateId() };
     }
-    throw new Error('Firebase not configured');
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    await set(tournamentRef, {
+      ...tournamentData,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+    });
+    return { ...tournamentData, id: tournamentId };
   },
-  
+
   async getTournament(tournamentId) {
-    return null;
+    if (!this.enabled) return null;
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    const snapshot = await get(tournamentRef);
+    return snapshot.exists() ? snapshot.val() : null;
   },
-  
+
   subscribeTournament(tournamentId, callback) {
-    return () => {};
+    if (!this.enabled) return () => {};
+    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
+    onValue(tournamentRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+    // Return an unsubscribe function
+    return () => off(tournamentRef, 'value', callback);
   },
-  
-  async updateMatch(tournamentId, roundIndex, matchId, matchData) {},
-  
-  async updatePlayerStats(tournamentId, playerStats) {},
-  
-  async updateCurrentRound(tournamentId, roundIndex) {}
+
+  async updateMatch(tournamentId, roundIndex, matchIdx, matchData) {
+    if (!this.enabled) return;
+    const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIdx}`);
+    await set(matchRef, matchData);
+  },
+
+  async updatePlayerStats(tournamentId, playerStats) {
+    if (!this.enabled) return;
+    const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
+    await set(statsRef, playerStats);
+  },
+
+  async updateCurrentRound(tournamentId, roundIndex) {
+    if (!this.enabled) return;
+    const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
+    await set(roundRef, roundIndex);
+  }
 };
 
 const App = () => {
