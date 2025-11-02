@@ -39,6 +39,8 @@ const App = () => {
   const [view, setView] = useState('home');
   const [numTables, setNumTables] = useState(2);
   const [playerNames, setPlayerNames] = useState(['']);
+  const [bonusPointsEnabled, setBonusPointsEnabled] = useState(false);
+  const [bonusPointsPerMatch, setBonusPointsPerMatch] = useState(43);
   const [tournament, setTournament] = useState(null);
   const [currentRound, setCurrentRound] = useState(0);
   const [identifiedPlayer, setIdentifiedPlayer] = useState(null);
@@ -321,7 +323,9 @@ const App = () => {
       playerStats,
       schedule,
       numTables,
-      currentRound: 0
+      currentRound: 0,
+      bonusPointsEnabled,
+      bonusPointsPerMatch
     };
 
     const localId = FirebaseService.generateId();
@@ -433,7 +437,10 @@ const App = () => {
       // Subtract old scores
       match.team1.forEach(playerId => {
         const player = updatedTournament.playerStats[playerId];
+        const oldBonusPoints = tournament.bonusPointsEnabled ? (oldT1M * tournament.bonusPointsPerMatch) : 0;
+        
         player.totalPoints -= oldT1;
+        player.bonusPoints = (player.bonusPoints || 0) - oldBonusPoints;
         player.totalMatches -= oldT1M;
         player.gamesPlayed -= 1;
         player.pointsAgainst -= oldT2;
@@ -448,7 +455,10 @@ const App = () => {
 
       match.team2.forEach(playerId => {
         const player = updatedTournament.playerStats[playerId];
+        const oldBonusPoints = tournament.bonusPointsEnabled ? (oldT2M * tournament.bonusPointsPerMatch) : 0;
+        
         player.totalPoints -= oldT2;
+        player.bonusPoints = (player.bonusPoints || 0) - oldBonusPoints;
         player.totalMatches -= oldT2M;
         player.gamesPlayed -= 1;
         player.pointsAgainst -= oldT1;
@@ -471,7 +481,11 @@ const App = () => {
     // Add new scores
     match.team1.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
-      player.totalPoints += team1Score;
+      const basePoints = team1Score;
+      const bonusPoints = tournament.bonusPointsEnabled ? (team1Matches * tournament.bonusPointsPerMatch) : 0;
+      
+      player.totalPoints += basePoints;
+      player.bonusPoints = (player.bonusPoints || 0) + bonusPoints;
       player.totalMatches += team1Matches;
       player.gamesPlayed += 1;
       player.pointsAgainst += team2Score;
@@ -494,7 +508,11 @@ const App = () => {
 
     match.team2.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
-      player.totalPoints += team2Score;
+      const basePoints = team2Score;
+      const bonusPoints = tournament.bonusPointsEnabled ? (team2Matches * tournament.bonusPointsPerMatch) : 0;
+      
+      player.totalPoints += basePoints;
+      player.bonusPoints = (player.bonusPoints || 0) + bonusPoints;
       player.totalMatches += team2Matches;
       player.gamesPlayed += 1;
       player.pointsAgainst += team1Score;
@@ -562,8 +580,11 @@ const App = () => {
   const getStandings = () => {
     if (!tournament) return [];
     return [...tournament.playerStats].sort((a, b) => {
-      if (b.totalPoints !== a.totalPoints) {
-        return b.totalPoints - a.totalPoints;
+      const totalA = a.totalPoints + (a.bonusPoints || 0);
+      const totalB = b.totalPoints + (b.bonusPoints || 0);
+      
+      if (totalB !== totalA) {
+        return totalB - totalA;
       }
       return b.totalMatches - a.totalMatches;
     });
@@ -572,8 +593,10 @@ const App = () => {
   const getStandingsByAverage = () => {
     if (!tournament) return [];
     return [...tournament.playerStats].sort((a, b) => {
-      const avgA = a.gamesPlayed > 0 ? a.totalPoints / a.gamesPlayed : 0;
-      const avgB = b.gamesPlayed > 0 ? b.totalPoints / b.gamesPlayed : 0;
+      const totalA = a.totalPoints + (a.bonusPoints || 0);
+      const totalB = b.totalPoints + (b.bonusPoints || 0);
+      const avgA = a.gamesPlayed > 0 ? totalA / a.gamesPlayed : 0;
+      const avgB = b.gamesPlayed > 0 ? totalB / b.gamesPlayed : 0;
       
       if (avgB !== avgA) {
         return avgB - avgA;
@@ -695,6 +718,39 @@ const App = () => {
               >
                 Add Player
               </button>
+            </div>
+
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center gap-3 mb-3">
+                <input
+                  type="checkbox"
+                  id="bonusPoints"
+                  checked={bonusPointsEnabled}
+                  onChange={(e) => setBonusPointsEnabled(e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
+                />
+                <label htmlFor="bonusPoints" className="text-sm font-medium text-gray-700">
+                  Bonus Punkte für Match (Stöck) aktivieren
+                </label>
+              </div>
+              
+              {bonusPointsEnabled && (
+                <div className="mt-3">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Bonus Punkte pro Match
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={bonusPointsPerMatch}
+                    onChange={(e) => setBonusPointsPerMatch(parseInt(e.target.value) || 0)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                  />
+                  <p className="text-xs text-gray-500 mt-1">
+                    Jedes Match gibt zusätzlich {bonusPointsPerMatch} Bonuspunkte
+                  </p>
+                </div>
+              )}
             </div>
 
             <button
@@ -850,6 +906,8 @@ const App = () => {
                 {standings.map((player, idx) => {
                   const avgPoints = player.gamesPlayed > 0 ? (player.totalPoints / player.gamesPlayed).toFixed(1) : '0.0';
                   const winRate = player.gamesPlayed > 0 ? ((player.wins / player.gamesPlayed) * 100).toFixed(0) : '0';
+                  const totalPoints = player.totalPoints + (player.bonusPoints || 0);
+                  const avgWithBonus = player.gamesPlayed > 0 ? (totalPoints / player.gamesPlayed).toFixed(1) : '0.0';
                   
                   return (
                     <div
@@ -893,13 +951,19 @@ const App = () => {
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="bg-white px-2 py-1 rounded">
                                   <span className="text-gray-500">Avg Points:</span>
-                                  <span className="ml-1 font-semibold text-gray-800">{avgPoints}</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{avgWithBonus}</span>
                                 </div>
                                 <div className="bg-white px-2 py-1 rounded">
                                   <span className="text-gray-500">Games:</span>
                                   <span className="ml-1 font-semibold text-gray-800">{player.gamesPlayed}</span>
                                 </div>
                               </div>
+                              {tournament.bonusPointsEnabled && (
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Bonus Points:</span>
+                                  <span className="ml-1 font-semibold text-purple-600">+{player.bonusPoints || 0}</span>
+                                </div>
+                              )}
                               <div className="grid grid-cols-2 gap-2">
                                 <div className="bg-white px-2 py-1 rounded">
                                   <span className="text-gray-500">Highest:</span>
@@ -923,12 +987,17 @@ const App = () => {
                         <div className="text-right ml-4">
                           {rankingMode === 'total' ? (
                             <>
-                              <div className="font-bold text-lg text-gray-800">{player.totalPoints}</div>
+                              <div className="font-bold text-lg text-gray-800">{totalPoints}</div>
+                              {tournament.bonusPointsEnabled && (player.bonusPoints || 0) > 0 && (
+                                <div className="text-xs text-purple-600">
+                                  {player.totalPoints} + {player.bonusPoints}
+                                </div>
+                              )}
                               <div className="text-xs text-gray-500">total pts</div>
                             </>
                           ) : (
                             <>
-                              <div className="font-bold text-lg text-gray-800">{avgPoints}</div>
+                              <div className="font-bold text-lg text-gray-800">{avgWithBonus}</div>
                               <div className="text-xs text-gray-500">avg pts</div>
                             </>
                           )}
