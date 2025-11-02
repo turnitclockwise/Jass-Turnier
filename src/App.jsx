@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
 const FirebaseService = {
-  enabled: false,
+  enabled: true,
   
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
