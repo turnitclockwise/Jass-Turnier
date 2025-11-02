@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
 const FirebaseService = {
-  enabled: true,
+  enabled: false,
   
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -49,6 +49,7 @@ const App = () => {
   const [loading, setLoading] = useState(false);
   const [rankingMode, setRankingMode] = useState('total');
   const [showExtendedStats, setShowExtendedStats] = useState(false);
+  const [isAdmin, setIsAdmin] = useState(true); // In local mode, creator is admin
 
   // 🔄 Auto-save to localStorage whenever tournament data changes
   useEffect(() => {
@@ -377,7 +378,7 @@ const App = () => {
     return [...match.team1, ...match.team2].includes(identifiedPlayer);
   };
 
-  const submitScore = async (roundIdx, matchIdx, team1Score, team2Score, team1Matches, team2Matches) => {
+  const submitScore = async (roundIdx, matchIdx, team1Score, team2Score, team1Matches, team2Matches, isEdit = false, oldScores = null) => {
     const match = tournament.schedule[roundIdx].matches[matchIdx];
     
     if (team1Score + team2Score !== 628) {
@@ -406,7 +407,9 @@ const App = () => {
       disputedBy: null,
       disputeReason: '',
       disputedAt: null,
-      autoAccepted: false
+      autoAccepted: false,
+      // Store old scores if this is an edit
+      oldScores: isEdit ? oldScores : null
     };
 
     updatedTournament.schedule[roundIdx].matches[matchIdx] = updatedMatch;
@@ -423,12 +426,49 @@ const App = () => {
     const updatedTournament = { ...tournament };
     const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
     
+    // If this score has oldScores, it means we're editing - subtract old values first
+    if (match.scoreSubmission.oldScores) {
+      const { team1Score: oldT1, team2Score: oldT2, team1Matches: oldT1M, team2Matches: oldT2M } = match.scoreSubmission.oldScores;
+      
+      // Subtract old scores
+      match.team1.forEach(playerId => {
+        const player = updatedTournament.playerStats[playerId];
+        player.totalPoints -= oldT1;
+        player.totalMatches -= oldT1M;
+        player.gamesPlayed -= 1;
+        player.pointsAgainst -= oldT2;
+        
+        if (oldT1 > oldT2) player.wins -= 1;
+        else if (oldT1 < oldT2) player.losses -= 1;
+        else player.draws -= 1;
+        
+        // Reset highest/lowest if needed (simplified - just recalculate)
+        if (player.lowestScore === oldT1) player.lowestScore = null;
+      });
+
+      match.team2.forEach(playerId => {
+        const player = updatedTournament.playerStats[playerId];
+        player.totalPoints -= oldT2;
+        player.totalMatches -= oldT2M;
+        player.gamesPlayed -= 1;
+        player.pointsAgainst -= oldT1;
+        
+        if (oldT2 > oldT1) player.wins -= 1;
+        else if (oldT2 < oldT1) player.losses -= 1;
+        else player.draws -= 1;
+        
+        if (player.lowestScore === oldT2) player.lowestScore = null;
+      });
+    }
+    
     match.scoreSubmission.status = 'verified';
     match.scoreSubmission.verifiedBy = identifiedPlayer;
     match.scoreSubmission.verifiedAt = Date.now();
+    delete match.scoreSubmission.oldScores; // Clean up
 
     const { team1Score, team2Score, team1Matches, team2Matches } = match.scoreSubmission;
     
+    // Add new scores
     match.team1.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
       player.totalPoints += team1Score;
@@ -758,6 +798,7 @@ const App = () => {
                   matchIdx={idx}
                   identifiedPlayer={identifiedPlayer}
                   isPlayerInMatch={isPlayerInMatch(match)}
+                  isAdmin={isAdmin}
                   onSubmitScore={submitScore}
                   onVerifyScore={verifyScore}
                   onDisputeScore={disputeScore}
@@ -997,6 +1038,7 @@ const MatchCard = ({
   matchIdx,
   identifiedPlayer,
   isPlayerInMatch,
+  isAdmin,
   onSubmitScore,
   onVerifyScore,
   onDisputeScore,
@@ -1008,29 +1050,68 @@ const MatchCard = ({
   const [team2Matches, setTeam2Matches] = useState(0);
   const [showDisputeModal, setShowDisputeModal] = useState(false);
   const [disputeReason, setDisputeReason] = useState('');
+  const [isEditing, setIsEditing] = useState(false);
 
   const { scoreSubmission } = match;
   const canSubmit = identifiedPlayer !== null && isPlayerInMatch && scoreSubmission.status === 'none';
   const canVerify = identifiedPlayer !== null && isPlayerInMatch && 
                     scoreSubmission.status === 'pending' && 
                     scoreSubmission.submittedBy !== identifiedPlayer;
+  const canEdit = scoreSubmission.status === 'verified' && (isAdmin || isPlayerInMatch);
 
-  useEffect(() => {
-    if (team1Score !== '') {
-      const score1 = parseInt(team1Score) || 0;
+  // Auto-calculate Team 2 when Team 1 changes
+  const handleTeam1Change = (value) => {
+    setTeam1Score(value);
+    if (value !== '') {
+      const score1 = parseInt(value) || 0;
       const score2 = 628 - score1;
-      setTeam2Score(score2.toString());
+      if (score2 >= 0 && score2 <= 628) {
+        setTeam2Score(score2.toString());
+      }
     }
-  }, [team1Score]);
+  };
+
+  // Auto-calculate Team 1 when Team 2 changes
+  const handleTeam2Change = (value) => {
+    setTeam2Score(value);
+    if (value !== '') {
+      const score2 = parseInt(value) || 0;
+      const score1 = 628 - score2;
+      if (score1 >= 0 && score1 <= 628) {
+        setTeam1Score(score1.toString());
+      }
+    }
+  };
 
   const handleSubmit = () => {
     const score1 = parseInt(team1Score) || 0;
     const score2 = parseInt(team2Score) || 0;
-    onSubmitScore(roundIdx, matchIdx, score1, score2, team1Matches, team2Matches);
-    setTeam1Score('');
-    setTeam2Score('');
-    setTeam1Matches(0);
-    setTeam2Matches(0);
+    
+    if (isEditing) {
+      // Pass old scores when editing
+      const oldScores = {
+        team1Score: scoreSubmission.team1Score,
+        team2Score: scoreSubmission.team2Score,
+        team1Matches: scoreSubmission.team1Matches,
+        team2Matches: scoreSubmission.team2Matches
+      };
+      onSubmitScore(roundIdx, matchIdx, score1, score2, team1Matches, team2Matches, true, oldScores);
+      setIsEditing(false);
+    } else {
+      onSubmitScore(roundIdx, matchIdx, score1, score2, team1Matches, team2Matches);
+      setTeam1Score('');
+      setTeam2Score('');
+      setTeam1Matches(0);
+      setTeam2Matches(0);
+    }
+  };
+
+  const handleEdit = () => {
+    setTeam1Score(scoreSubmission.team1Score.toString());
+    setTeam2Score(scoreSubmission.team2Score.toString());
+    setTeam1Matches(scoreSubmission.team1Matches);
+    setTeam2Matches(scoreSubmission.team2Matches);
+    setIsEditing(true);
   };
 
   const handleDispute = () => {
@@ -1107,7 +1188,7 @@ const MatchCard = ({
                 min="0"
                 max="628"
                 value={team1Score}
-                onChange={(e) => setTeam1Score(e.target.value)}
+                onChange={(e) => handleTeam1Change(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 placeholder="0-628"
               />
@@ -1119,7 +1200,7 @@ const MatchCard = ({
                 min="0"
                 max="628"
                 value={team2Score}
-                onChange={(e) => setTeam2Score(e.target.value)}
+                onChange={(e) => handleTeam2Change(e.target.value)}
                 className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                 placeholder="Auto-calculated"
               />
@@ -1189,17 +1270,96 @@ const MatchCard = ({
         </div>
       )}
 
-      {scoreSubmission.status === 'verified' && (
+      {scoreSubmission.status === 'verified' && !isEditing && (
         <div className="bg-green-50 border border-green-200 rounded-lg p-3">
-          <div className="grid grid-cols-2 gap-2 text-sm">
+          <div className="flex justify-between items-start mb-2">
+            <div className="grid grid-cols-2 gap-2 text-sm flex-1">
+              <div>
+                <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
+                <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+              </div>
+              <div>
+                <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
+                <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+              </div>
+            </div>
+            {canEdit && (
+              <button
+                onClick={handleEdit}
+                className="ml-2 p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded"
+                title="Edit Score"
+              >
+                <Edit2 size={18} />
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
+      {scoreSubmission.status === 'verified' && isEditing && (
+        <div className="space-y-3 bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-sm font-medium text-blue-800 mb-2">✏️ Editing Score</p>
+          <div className="grid grid-cols-2 gap-3">
             <div>
-              <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
-              <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Score</label>
+              <input
+                type="number"
+                min="0"
+                max="628"
+                value={team1Score}
+                onChange={(e) => handleTeam1Change(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
             <div>
-              <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
-              <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Score</label>
+              <input
+                type="number"
+                min="0"
+                max="628"
+                value={team2Score}
+                onChange={(e) => handleTeam2Change(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
             </div>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Matches</label>
+              <input
+                type="number"
+                min="0"
+                max="4"
+                value={team1Matches}
+                onChange={(e) => setTeam1Matches(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Matches</label>
+              <input
+                type="number"
+                min="0"
+                max="4"
+                value={team2Matches}
+                onChange={(e) => setTeam2Matches(parseInt(e.target.value) || 0)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+              />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={handleSubmit}
+              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium"
+            >
+              Update Score
+            </button>
+            <button
+              onClick={() => setIsEditing(false)}
+              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+            >
+              Cancel
+            </button>
           </div>
         </div>
       )}
