@@ -1,17 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, Play, Award, X } from 'lucide-react';
-
-// Firebase Service - Ready for integration with your firebase.js
-// In your actual project, replace this with:
-// import { ref, set, get, onValue, update, off } from 'firebase/database';
-// import { database } from './firebase';
+import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
 const FirebaseService = {
-  enabled: false, // Set to true when Firebase is properly configured
-  database: null,
-  
-  // Simulated Firebase functions for Claude Artifacts
-  // Replace these with real Firebase calls in your project
+  enabled: false,
   
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
@@ -19,7 +10,6 @@ const FirebaseService = {
   
   async createTournament(tournamentData) {
     if (!this.enabled) {
-      console.warn('⚠️ Firebase disabled - running in local mode');
       return {
         ...tournamentData,
         id: this.generateId(),
@@ -27,107 +17,22 @@ const FirebaseService = {
         expiresAt: Date.now() + (24 * 60 * 60 * 1000)
       };
     }
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const tournamentId = this.generateId();
-    const expiresAt = Date.now() + (24 * 60 * 60 * 1000);
-    
-    const tournament = {
-      ...tournamentData,
-      id: tournamentId,
-      createdAt: Date.now(),
-      expiresAt: expiresAt,
-      creatorId: 'temp-creator-id',
-      currentAdmin: 'temp-creator-id',
-      status: 'active',
-      connectedUsers: {},
-      version: 1
-    };
-    
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    await set(tournamentRef, tournament);
-    return tournament;
-    */
-    
     throw new Error('Firebase not configured');
   },
   
   async getTournament(tournamentId) {
-    if (!this.enabled) {
-      console.warn('⚠️ Firebase disabled - cannot load tournament');
-      return null;
-    }
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    const snapshot = await get(tournamentRef);
-    return snapshot.exists() ? snapshot.val() : null;
-    */
-    
     return null;
   },
   
   subscribeTournament(tournamentId, callback) {
-    if (!this.enabled) {
-      return () => {};
-    }
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    
-    onValue(tournamentRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      }
-    });
-    
-    return () => off(tournamentRef);
-    */
-    
     return () => {};
   },
   
-  async updateMatch(tournamentId, roundIndex, matchId, matchData) {
-    if (!this.enabled) return;
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    const snapshot = await get(tournamentRef);
-    const tournament = snapshot.val();
-    
-    if (tournament && tournament.schedule && tournament.schedule[roundIndex]) {
-      const matchIndex = tournament.schedule[roundIndex].matches.findIndex(m => m.id === matchId);
-      if (matchIndex !== -1) {
-        const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`);
-        await update(matchRef, matchData);
-      }
-    }
-    */
-  },
+  async updateMatch(tournamentId, roundIndex, matchId, matchData) {},
   
-  async updatePlayerStats(tournamentId, playerStats) {
-    if (!this.enabled) return;
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
-    await set(statsRef, playerStats);
-    */
-  },
+  async updatePlayerStats(tournamentId, playerStats) {},
   
-  async updateCurrentRound(tournamentId, roundIndex) {
-    if (!this.enabled) return;
-    
-    // REPLACE THIS IN YOUR PROJECT WITH:
-    /*
-    const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
-    await set(roundRef, roundIndex);
-    */
-  }
+  async updateCurrentRound(tournamentId, roundIndex) {}
 };
 
 const App = () => {
@@ -142,12 +47,11 @@ const App = () => {
   const [showShareModal, setShowShareModal] = useState(false);
   const [joinId, setJoinId] = useState('');
   const [loading, setLoading] = useState(false);
-  const [rankingMode, setRankingMode] = useState('total'); // 'total' or 'average'
+  const [rankingMode, setRankingMode] = useState('total');
   const [showExtendedStats, setShowExtendedStats] = useState(false);
 
   useEffect(() => {
     if (!tournamentId) return;
-    
     const unsubscribe = FirebaseService.subscribeTournament(tournamentId, (updatedTournament) => {
       setTournament({
         players: updatedTournament.players,
@@ -156,7 +60,6 @@ const App = () => {
       });
       setCurrentRound(updatedTournament.currentRound || 0);
     });
-    
     return unsubscribe;
   }, [tournamentId]);
 
@@ -164,11 +67,9 @@ const App = () => {
     const n = players.length;
     const rounds = n - 1;
     const schedule = [];
-    
     const maxPlayersPerRound = tables * 4;
     const playersPerRound = Math.floor(Math.min(n, maxPlayersPerRound) / 4) * 4;
     const breaksPerRound = n - playersPerRound;
-    
     const usedPartnerships = new Set();
     const usedOpponents = new Map();
     
@@ -209,7 +110,6 @@ const App = () => {
       }
       
       available = available.filter(p => !sitting.includes(p));
-      
       for (let i = available.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [available[i], available[j]] = [available[j], available[i]];
@@ -252,9 +152,7 @@ const App = () => {
             const p1Used = usedPartnerships.has(p1Key);
             const p2Used = usedPartnerships.has(p2Key);
             
-            if (p1Used && p2Used && round < rounds / 2) {
-              continue;
-            }
+            if (p1Used && p2Used && round < rounds / 2) continue;
             
             const partnershipPenalty = (p1Used ? 50 : 0) + (p2Used ? 50 : 0);
             const oppScore = (
@@ -355,26 +253,11 @@ const App = () => {
       currentRound: 0
     };
 
-    if (FirebaseService.enabled) {
-      try {
-        const createdTournament = await FirebaseService.createTournament(tournamentData);
-        setTournamentId(createdTournament.id);
-        setTournament(tournamentData);
-        setView('tournament');
-        setShowShareModal(true);
-      } catch (error) {
-        console.error('Firebase error:', error);
-        setTournament(tournamentData);
-        setView('tournament');
-      }
-    } else {
-      // Local mode without Firebase
-      const localId = FirebaseService.generateId();
-      setTournamentId(localId);
-      setTournament(tournamentData);
-      setView('tournament');
-      setShowShareModal(true);
-    }
+    const localId = FirebaseService.generateId();
+    setTournamentId(localId);
+    setTournament(tournamentData);
+    setView('tournament');
+    setShowShareModal(true);
   };
 
   const joinTournamentById = async (id) => {
@@ -476,7 +359,6 @@ const App = () => {
 
     const { team1Score, team2Score, team1Matches, team2Matches } = match.scoreSubmission;
     
-    // Update Team 1 players
     match.team1.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
       player.totalPoints += team1Score;
@@ -484,7 +366,6 @@ const App = () => {
       player.gamesPlayed += 1;
       player.pointsAgainst += team2Score;
       
-      // Update highest/lowest scores
       if (team1Score > player.highestScore) {
         player.highestScore = team1Score;
       }
@@ -492,7 +373,6 @@ const App = () => {
         player.lowestScore = team1Score;
       }
       
-      // Update Win/Loss/Draw
       if (team1Score > team2Score) {
         player.wins += 1;
       } else if (team1Score < team2Score) {
@@ -502,7 +382,6 @@ const App = () => {
       }
     });
 
-    // Update Team 2 players
     match.team2.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
       player.totalPoints += team2Score;
@@ -510,7 +389,6 @@ const App = () => {
       player.gamesPlayed += 1;
       player.pointsAgainst += team1Score;
       
-      // Update highest/lowest scores
       if (team2Score > player.highestScore) {
         player.highestScore = team2Score;
       }
@@ -518,7 +396,6 @@ const App = () => {
         player.lowestScore = team2Score;
       }
       
-      // Update Win/Loss/Draw
       if (team2Score > team1Score) {
         player.wins += 1;
       } else if (team2Score < team1Score) {
@@ -812,28 +689,138 @@ const App = () => {
 
           <div>
             <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Trophy className="text-yellow-500" size={24} />
-                Standings
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                  <Trophy className="text-yellow-500" size={24} />
+                  Standings
+                </h2>
+                <button
+                  onClick={() => setShowExtendedStats(!showExtendedStats)}
+                  className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                >
+                  {showExtendedStats ? 'Hide' : 'Show'} Stats
+                </button>
+              </div>
+              
+              <div className="mb-4 flex gap-2">
+                <button
+                  onClick={() => setRankingMode('total')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    rankingMode === 'total'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Total Points
+                </button>
+                <button
+                  onClick={() => setRankingMode('average')}
+                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    rankingMode === 'average'
+                      ? 'bg-indigo-600 text-white'
+                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                  }`}
+                >
+                  Average Points
+                </button>
+              </div>
+              
               <div className="space-y-2">
-                {standings.map((player, idx) => (
-                  <div
-                    key={player.id}
-                    className={`p-3 rounded-lg ${
-                      idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-gray-50'
-                    }`}
-                  >
-                    <div className="flex justify-between items-center">
-                      <div className="text-right">
-                        <div className="font-bold text-lg text-gray-800">{player.totalPoints}</div>
-                        <div className="text-sm text-gray-600">
-                          {player.totalMatches} 🏆
+                {standings.map((player, idx) => {
+                  const avgPoints = player.gamesPlayed > 0 ? (player.totalPoints / player.gamesPlayed).toFixed(1) : '0.0';
+                  const winRate = player.gamesPlayed > 0 ? ((player.wins / player.gamesPlayed) * 100).toFixed(0) : '0';
+                  
+                  return (
+                    <div
+                      key={player.id}
+                      className={`p-3 rounded-lg ${
+                        idx === 0 ? 'bg-yellow-50 border-2 border-yellow-400' : 'bg-gray-50'
+                      }`}
+                    >
+                      <div className="flex justify-between items-start">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-bold text-gray-700">#{idx + 1}</span>
+                            <span className={`font-medium ${idx === 0 ? 'text-yellow-700' : 'text-gray-800'}`}>
+                              {player.name}
+                            </span>
+                            {player.id === identifiedPlayer && (
+                              <UserCheck size={14} className="text-indigo-600" />
+                            )}
+                          </div>
+                          
+                          {!showExtendedStats && (
+                            <div className="text-sm text-gray-600">
+                              {player.gamesPlayed} games • {player.wins}W-{player.losses}L-{player.draws}D
+                            </div>
+                          )}
+                          
+                          {showExtendedStats && (
+                            <div className="mt-2 space-y-1 text-xs">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Record:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">
+                                    {player.wins}W-{player.losses}L-{player.draws}D
+                                  </span>
+                                </div>
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Win Rate:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{winRate}%</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Avg Points:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{avgPoints}</span>
+                                </div>
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Games:</span>
+                                  <span className="ml-1 font-semibold text-gray-800">{player.gamesPlayed}</span>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-2">
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Highest:</span>
+                                  <span className="ml-1 font-semibold text-green-600">{player.highestScore}</span>
+                                </div>
+                                <div className="bg-white px-2 py-1 rounded">
+                                  <span className="text-gray-500">Lowest:</span>
+                                  <span className="ml-1 font-semibold text-red-600">
+                                    {player.lowestScore !== null ? player.lowestScore : '-'}
+                                  </span>
+                                </div>
+                              </div>
+                              <div className="bg-white px-2 py-1 rounded">
+                                <span className="text-gray-500">Points Against:</span>
+                                <span className="ml-1 font-semibold text-gray-800">{player.pointsAgainst}</span>
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                        
+                        <div className="text-right ml-4">
+                          {rankingMode === 'total' ? (
+                            <>
+                              <div className="font-bold text-lg text-gray-800">{player.totalPoints}</div>
+                              <div className="text-xs text-gray-500">total pts</div>
+                            </>
+                          ) : (
+                            <>
+                              <div className="font-bold text-lg text-gray-800">{avgPoints}</div>
+                              <div className="text-xs text-gray-500">avg pts</div>
+                            </>
+                          )}
+                          {player.totalMatches > 0 && (
+                            <div className="text-sm text-gray-600 mt-1">
+                              {player.totalMatches} 🏆
+                            </div>
+                          )}
                         </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
