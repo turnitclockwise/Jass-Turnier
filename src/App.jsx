@@ -1,65 +1,38 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
 
-import { database } from './firebase';
-import { ref, set, get, onValue, off } from "firebase/database";
-
 const FirebaseService = {
   enabled: true,
-
+  
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   },
-
-  async createTournament(tournamentId, tournamentData) {
+  
+  async createTournament(tournamentData) {
     if (!this.enabled) {
-      return { ...tournamentData, id: this.generateId() };
+      return {
+        ...tournamentData,
+        id: this.generateId(),
+        createdAt: Date.now(),
+        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+      };
     }
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    await set(tournamentRef, {
-      ...tournamentData,
-      createdAt: Date.now(),
-      expiresAt: Date.now() + (24 * 60 * 60 * 1000)
-    });
-    return { ...tournamentData, id: tournamentId };
+    throw new Error('Firebase not configured');
   },
-
+  
   async getTournament(tournamentId) {
-    if (!this.enabled) return null;
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    const snapshot = await get(tournamentRef);
-    return snapshot.exists() ? snapshot.val() : null;
+    return null;
   },
-
+  
   subscribeTournament(tournamentId, callback) {
-    if (!this.enabled) return () => {};
-    const tournamentRef = ref(database, `tournaments/${tournamentId}`);
-    onValue(tournamentRef, (snapshot) => {
-      if (snapshot.exists()) {
-        callback(snapshot.val());
-      }
-    });
-    // Return an unsubscribe function
-    return () => off(tournamentRef, 'value', callback);
+    return () => {};
   },
-
-  async updateMatch(tournamentId, roundIndex, matchIdx, matchData) {
-    if (!this.enabled) return;
-    const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIdx}`);
-    await set(matchRef, matchData);
-  },
-
-  async updatePlayerStats(tournamentId, playerStats) {
-    if (!this.enabled) return;
-    const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
-    await set(statsRef, playerStats);
-  },
-
-  async updateCurrentRound(tournamentId, roundIndex) {
-    if (!this.enabled) return;
-    const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
-    await set(roundRef, roundIndex);
-  }
+  
+  async updateMatch(tournamentId, roundIndex, matchId, matchData) {},
+  
+  async updatePlayerStats(tournamentId, playerStats) {},
+  
+  async updateCurrentRound(tournamentId, roundIndex) {}
 };
 
 const App = () => {
@@ -696,12 +669,12 @@ const App = () => {
           <div className="bg-white rounded-lg shadow-lg p-8">
             <div className="flex items-center gap-3 mb-6">
               <Trophy className="text-indigo-600" size={32} />
-              <h1 className="text-3xl font-bold text-gray-800">Jass Tournament Setup</h1>
+              <h1 className="text-3xl font-bold text-gray-800">Jass-Turnier Iirichtig</h1>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Number of Tables
+                Aazahl Tisch
               </label>
               <input
                 type="number"
@@ -712,13 +685,13 @@ const App = () => {
                 className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
               />
               <p className="text-sm text-gray-500 mt-1">
-                Minimum players needed: {numTables * 4}
+                Mindestens {numTables * 4} Spieler benötigt
               </p>
             </div>
 
             <div className="mb-6">
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Player Names
+                Spielernäme
               </label>
               {playerNames.map((name, idx) => (
                 <div key={idx} className="flex gap-2 mb-2">
@@ -726,7 +699,7 @@ const App = () => {
                     type="text"
                     value={name}
                     onChange={(e) => updatePlayerName(idx, e.target.value)}
-                    placeholder={`Player ${idx + 1}`}
+                    placeholder={`Spieler ${idx + 1}`}
                     className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                   {playerNames.length > 1 && (
@@ -734,7 +707,7 @@ const App = () => {
                       onClick={() => removePlayer(idx)}
                       className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
                     >
-                      Remove
+                      Entferne
                     </button>
                   )}
                 </div>
@@ -743,7 +716,7 @@ const App = () => {
                 onClick={addPlayer}
                 className="mt-2 px-4 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600"
               >
-                Add Player
+                Spieler hinzuefüege
               </button>
             </div>
 
@@ -757,7 +730,7 @@ const App = () => {
                   className="w-5 h-5 text-indigo-600 rounded focus:ring-2 focus:ring-indigo-500"
                 />
                 <label htmlFor="bonusPoints" className="text-sm font-medium text-gray-700">
-                  Bonus Punkte für Match aktivieren
+                  Bonus Punkte für Match aktiviere
                 </label>
               </div>
               
@@ -774,7 +747,7 @@ const App = () => {
                     className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
                   />
                   <p className="text-xs text-gray-500 mt-1">
-                    Jedes Match gibt zusätzlich {bonusPointsPerMatch} Bonuspunkte
+                    Jedes Match git zuesätzlich {bonusPointsPerMatch} Bonuspünkt
                   </p>
                 </div>
               )}
@@ -784,7 +757,7 @@ const App = () => {
               onClick={startTournament}
               className="w-full px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-semibold"
             >
-              Start Tournament
+              Turnier starte
             </button>
           </div>
         </div>
