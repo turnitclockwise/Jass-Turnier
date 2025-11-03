@@ -299,7 +299,7 @@ const App = () => {
     const minPlayers = numTables * 4;
 
     if (validPlayers.length < minPlayers) {
-      alert(`Need at least ${minPlayers} players for ${numTables} table(s)`);
+      alert(`Mindestens ${minPlayers} Spieler benötigt für ${numTables} Tisch(e)`);
       return;
     }
 
@@ -315,7 +315,8 @@ const App = () => {
       draws: 0,
       highestScore: 0,
       lowestScore: null,
-      pointsAgainst: 0
+      pointsAgainst: 0,
+      bonusPoints: 0
     }));
 
     const tournamentData = {
@@ -328,31 +329,48 @@ const App = () => {
       bonusPointsPerMatch
     };
 
-    const localId = FirebaseService.generateId();
-    setTournamentId(localId);
-    setTournament(tournamentData);
-    setView('tournament');
-    setShowShareModal(true);
+    try {
+      console.log('🚀 Creating tournament...');
+      const createdTournament = await FirebaseService.createTournament(tournamentData);
+      console.log('📦 Tournament object:', createdTournament);
+      
+      setTournamentId(createdTournament.id);
+      setTournament(tournamentData);
+      setView('tournament');
+      setShowShareModal(true);
+      
+      console.log('✅ Tournament setup complete, ID:', createdTournament.id);
+    } catch (error) {
+      console.error('❌ Error creating tournament:', error);
+      alert('Fehler beim Erstellen des Turniers: ' + error.message);
+    }
   };
 
   const joinTournamentById = async (id) => {
     setLoading(true);
     try {
+      console.log('🔍 Loading tournament:', id);
       const tournamentData = await FirebaseService.getTournament(id);
+      
       if (tournamentData) {
+        console.log('✅ Tournament data received:', tournamentData);
         setTournamentId(id);
         setTournament({
           players: tournamentData.players,
           schedule: tournamentData.schedule,
-          playerStats: tournamentData.playerStats
+          playerStats: tournamentData.playerStats,
+          bonusPointsEnabled: tournamentData.bonusPointsEnabled || false,
+          bonusPointsPerMatch: tournamentData.bonusPointsPerMatch || 43
         });
         setCurrentRound(tournamentData.currentRound || 0);
         setView('tournament');
       } else {
-        alert(`Tournament "${id}" not found`);
+        alert(`Turnier "${id}" nöd gfunde`);
+        console.warn('❌ Tournament not found');
       }
     } catch (error) {
-      alert('Error joining tournament');
+      console.error('❌ Error joining tournament:', error);
+      alert('Fehler bim Biiträte: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -535,11 +553,15 @@ const App = () => {
 
     setTournament(updatedTournament);
     
-    if (tournamentId) {
-      await FirebaseService.updateMatch(tournamentId, roundIdx, match.id, {
-        scoreSubmission: match.scoreSubmission
-      });
-      await FirebaseService.updatePlayerStats(tournamentId, updatedTournament.playerStats);
+    if (tournamentId && FirebaseService.enabled) {
+      console.log('📤 Updating match and stats in Firebase...');
+      try {
+        await FirebaseService.updateMatch(tournamentId, roundIdx, match.id, match);
+        await FirebaseService.updatePlayerStats(tournamentId, updatedTournament.playerStats);
+        console.log('✅ Match and stats updated in Firebase');
+      } catch (error) {
+        console.error('❌ Error updating Firebase:', error);
+      }
     }
   };
 
