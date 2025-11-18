@@ -1,39 +1,75 @@
 import React, { useState, useEffect } from 'react';
 import { Users, Trophy, Table, Clock, CheckCircle, AlertCircle, XCircle, Edit2, UserCheck, Share2, PlusCircle, X } from 'lucide-react';
+import { ref, set, get, onValue, off, update } from 'firebase/database';
+import { database } from './firebase';
 
 const FirebaseService = {
-  enabled: true,
-  
   generateId() {
     return Math.random().toString(36).substring(2, 8).toUpperCase();
   },
-  
+
   async createTournament(tournamentData) {
-    if (!this.enabled) {
-      return {
-        ...tournamentData,
-        id: this.generateId(),
-        createdAt: Date.now(),
-        expiresAt: Date.now() + (24 * 60 * 60 * 1000)
-      };
-    }
-    throw new Error('Firebase not configured');
+    const tournamentId = this.generateId();
+    const tournamentRef = ref(database, 'tournaments/' + tournamentId);
+    
+    const dataToSave = {
+      ...tournamentData,
+      id: tournamentId,
+      createdAt: Date.now(),
+      expiresAt: Date.now() + (24 * 60 * 60 * 1000)
+    };
+
+    await set(tournamentRef, dataToSave);
+    return dataToSave;
   },
-  
+
   async getTournament(tournamentId) {
-    return null;
+    const tournamentRef = ref(database, 'tournaments/' + tournamentId);
+    const snapshot = await get(tournamentRef);
+    if (snapshot.exists()) {
+      const data = snapshot.val();
+      // Ensure schedule and playerStats are arrays if they are empty/undefined in Firebase
+      if (!data.schedule) data.schedule = [];
+      if (!data.playerStats) data.playerStats = [];
+      return data;
+    } else {
+      return null;
+    }
   },
-  
+
   subscribeTournament(tournamentId, callback) {
-    return () => {};
+    const tournamentRef = ref(database, 'tournaments/' + tournamentId);
+    const unsubscribe = onValue(tournamentRef, (snapshot) => {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
+      }
+    });
+    return unsubscribe;
   },
-  
-  async updateMatch(tournamentId, roundIndex, matchId, matchData) {},
-  
-  async updatePlayerStats(tournamentId, playerStats) {},
-  
-  async updateCurrentRound(tournamentId, roundIndex) {}
+
+  async updateMatch(tournamentId, roundIndex, matchId, matchData) {
+    // The matchId is in the format "r0-m1", so we extract the index '1'
+    const matchIndex = matchId.split('-')[1];
+    if (matchIndex === undefined) {
+      console.error("Could not determine match index from ID:", matchId);
+      return;
+    }
+    const matchRef = ref(database, `tournaments/${tournamentId}/schedule/${roundIndex}/matches/${matchIndex}`);
+    // Use `update` to modify only the specified properties (like `scoreSubmission`)
+    await update(matchRef, matchData);
+  },
+
+  async updatePlayerStats(tournamentId, playerStats) {
+    const statsRef = ref(database, `tournaments/${tournamentId}/playerStats`);
+    await set(statsRef, playerStats);
+  },
+
+  async updateCurrentRound(tournamentId, roundIndex) {
+    const roundRef = ref(database, `tournaments/${tournamentId}/currentRound`);
+    await set(roundRef, roundIndex);
+  }
 };
+
 
 const App = () => {
   const [view, setView] = useState('home');
@@ -448,6 +484,13 @@ const App = () => {
     const updatedTournament = { ...tournament };
     const match = updatedTournament.schedule[roundIdx].matches[matchIdx];
     
+    // Safety check
+    if (!match || !match.team1 || !match.team2) {
+      console.error('❌ Invalid match data in verifyScore:', match);
+      alert('Fehler: Match-Date sind ungültig');
+      return;
+    }
+    
     // If this score has oldScores, it means we're editing - subtract old values first
     if (match.scoreSubmission.oldScores) {
       const { team1Score: oldT1, team2Score: oldT2, team1Matches: oldT1M, team2Matches: oldT2M } = match.scoreSubmission.oldScores;
@@ -455,6 +498,8 @@ const App = () => {
       // Subtract old scores
       match.team1.forEach(playerId => {
         const player = updatedTournament.playerStats[playerId];
+        if (!player) return;
+        
         const oldBonusPoints = tournament.bonusPointsEnabled ? (oldT1M * tournament.bonusPointsPerMatch) : 0;
         
         player.totalPoints -= oldT1;
@@ -467,12 +512,13 @@ const App = () => {
         else if (oldT1 < oldT2) player.losses -= 1;
         else player.draws -= 1;
         
-        // Reset highest/lowest if needed (simplified - just recalculate)
         if (player.lowestScore === oldT1) player.lowestScore = null;
       });
 
       match.team2.forEach(playerId => {
         const player = updatedTournament.playerStats[playerId];
+        if (!player) return;
+        
         const oldBonusPoints = tournament.bonusPointsEnabled ? (oldT2M * tournament.bonusPointsPerMatch) : 0;
         
         player.totalPoints -= oldT2;
@@ -492,13 +538,15 @@ const App = () => {
     match.scoreSubmission.status = 'verified';
     match.scoreSubmission.verifiedBy = identifiedPlayer;
     match.scoreSubmission.verifiedAt = Date.now();
-    delete match.scoreSubmission.oldScores; // Clean up
+    delete match.scoreSubmission.oldScores;
 
     const { team1Score, team2Score, team1Matches, team2Matches } = match.scoreSubmission;
     
     // Add new scores
     match.team1.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
+      if (!player) return;
+      
       const basePoints = team1Score;
       const bonusPoints = tournament.bonusPointsEnabled ? (team1Matches * tournament.bonusPointsPerMatch) : 0;
       
@@ -526,6 +574,8 @@ const App = () => {
 
     match.team2.forEach(playerId => {
       const player = updatedTournament.playerStats[playerId];
+      if (!player) return;
+      
       const basePoints = team2Score;
       const bonusPoints = tournament.bonusPointsEnabled ? (team2Matches * tournament.bonusPointsPerMatch) : 0;
       
@@ -867,22 +917,34 @@ const App = () => {
                 </div>
               )}
 
-              {currentRoundData.matches.map((match, idx) => (
-                <MatchCard
-                  key={match.id}
-                  match={match}
-                  tournament={tournament}
-                  roundIdx={currentRound}
-                  matchIdx={idx}
-                  identifiedPlayer={identifiedPlayer}
-                  isPlayerInMatch={isPlayerInMatch(match)}
-                  isAdmin={isAdmin}
-                  onSubmitScore={submitScore}
-                  onVerifyScore={verifyScore}
-                  onDisputeScore={disputeScore}
-                  onResolveDispute={resolveDispute}
-                />
-              ))}
+              {currentRoundData.matches.map((match, idx) => {
+                // Safety check: ensure match has required properties
+                if (!match || !match.team1 || !match.team2) {
+                  console.error('❌ Invalid match data:', match);
+                  return (
+                    <div key={idx} className="border-2 border-red-200 rounded-lg p-4 mb-4 bg-red-50">
+                      <p className="text-red-600">⚠️ Fehler: Match-Date sind ungültig</p>
+                    </div>
+                  );
+                }
+                
+                return (
+                  <MatchCard
+                    key={match.id}
+                    match={match}
+                    tournament={tournament}
+                    roundIdx={currentRound}
+                    matchIdx={idx}
+                    identifiedPlayer={identifiedPlayer}
+                    isPlayerInMatch={isPlayerInMatch(match)}
+                    isAdmin={isAdmin}
+                    onSubmitScore={submitScore}
+                    onVerifyScore={verifyScore}
+                    onDisputeScore={disputeScore}
+                    onResolveDispute={resolveDispute}
+                  />
+                );
+              })}
             </div>
           </div>
 
