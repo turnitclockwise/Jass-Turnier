@@ -2,6 +2,7 @@
 import { useState } from 'react';
 import { generateSchedule } from '../services/scheduleService';
 import FirebaseService from '../services/tournamentService';
+import { Validators } from '../utils/validators';
 
 const useTournament = () => {
   const [tournament, setTournament] = useState(null);
@@ -13,10 +14,9 @@ const useTournament = () => {
 
   const startTournament = async (playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, setView, setShowShareModal) => {
     const validPlayers = playerNames.filter(name => name.trim() !== '');
-    const minPlayers = numTables * 4;
-
-    if (validPlayers.length < minPlayers) {
-      alert(`Mindestens ${minPlayers} Spieler benötigt für ${numTables} Tisch(e)`);
+    const playerCountValidation = Validators.validatePlayerCount(validPlayers.length, numTables);
+    if (!playerCountValidation.valid) {
+      alert(playerCountValidation.error);
       return;
     }
 

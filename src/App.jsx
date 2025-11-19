@@ -1,5 +1,5 @@
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import useTournament from './hooks/useTournament';
 import useLocalStorage from './hooks/useLocalStorage';
 import useFirebaseSync from './hooks/useFirebaseSync';
@@ -41,6 +41,36 @@ const App = () => {
 
   useLocalStorage(tournament, tournamentId, identifiedPlayer, view, rankingMode, showExtendedStats, displayRound);
   useFirebaseSync(tournamentId, setTournament);
+
+  useEffect(() => {
+    const savedState = localStorage.getItem('jassTournament');
+    if (savedState) {
+      try {
+        const {
+          tournamentId: savedTournamentId,
+          identifiedPlayer: savedIdentifiedPlayer,
+          view: savedView,
+          rankingMode: savedRankingMode,
+          showExtendedStats: savedShowExtendedStats,
+          displayRound: savedDisplayRound,
+        } = JSON.parse(savedState);
+
+        if (savedTournamentId) {
+          console.log('🔄 Restoring session from localStorage...');
+          setTournamentId(savedTournamentId);
+          setIdentifiedPlayer(savedIdentifiedPlayer || null);
+          setView(savedView || 'tournament');
+          setRankingMode(savedRankingMode || 'total');
+          setShowExtendedStats(savedShowExtendedStats || false);
+          setDisplayRound(savedDisplayRound || 0);
+          console.log('✅ Session restored.');
+        }
+      } catch (error) {
+        console.error('❌ Failed to parse or restore from localStorage:', error);
+        localStorage.removeItem('jassTournament');
+      }
+    }
+  }, []);
 
   const addPlayer = () => setPlayerNames([...playerNames, '']);
   const removePlayer = (idx) => setPlayerNames(playerNames.filter((_, i) => i !== idx));
