@@ -3,11 +3,10 @@
     "tournaments": {
       ".read": true,
       "$tournamentId": {
-        // Allow write if the tournament is new, or if it's an update to an unexpired tournament.
+       
         ".write": "!data.exists() || (data.exists() && data.child('expiresAt').val() > now)",
 
-        // On CREATE: check for required children and that the ID matches the key.
-        // On UPDATE: ensure critical fields like ID and creation date are not changed.
+        
         ".validate": "(!data.exists() && newData.hasChildren(['id', 'createdAt', 'expiresAt', 'players', 'schedule', 'playerStats']) && newData.child('id').val() === $tournamentId) || (data.exists() && newData.child('id').val() === data.child('id').val() && newData.child('createdAt').val() === data.child('createdAt').val())",
 
         "id": {
@@ -28,7 +27,7 @@
         "playerStats": {
           ".validate": "newData.val() === null || newData.hasChildren()"
         },
-        // Allow other properties to be written.
+        
         "$other": { ".validate": true }
       }
     }
