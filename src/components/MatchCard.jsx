@@ -149,6 +149,8 @@ const MatchCard = ({
     }
   };
 
+  const showSubmitForm = (scoreSubmission.status === 'none' && canSubmit) || isEditing;
+
   return (
     <div className="border-2 border-gray-700 rounded-lg p-4 mb-4 bg-green-carpet bg-cover bg-center">
       <div className="flex justify-between items-start mb-3">
@@ -164,13 +166,13 @@ const MatchCard = ({
 
       <div className="bg-slate-board bg-cover bg-center rounded-lg p-4 border-4 border-dark-brown">
         <div className="grid grid-cols-2 gap-4 mb-4">
-          <div className="p-3 rounded-lg">
+          <div className="p-3 rounded-lg flex flex-col items-center">
             <p className="text-xs font-semibold text-gray-200 mb-1">TEAM 1</p>
             {match.team1.map(id => (
               <p key={id} className="text-sm text-white">{tournament.players[id]}</p>
             ))}
           </div>
-          <div className="p-3 rounded-lg">
+          <div className="p-3 rounded-lg flex flex-col items-center">
             <p className="text-xs font-semibold text-gray-200 mb-1">TEAM 2</p>
             {match.team2.map(id => (
               <p key={id} className="text-sm text-white">{tournament.players[id]}</p>
@@ -178,7 +180,7 @@ const MatchCard = ({
           </div>
         </div>
 
-        {(scoreSubmission.status === 'none' || isEditing) && canSubmit && (
+        {showSubmitForm && (
           <div className={`space-y-3 ${isEditing ? 'bg-blue-900/20 border border-blue-500/30 rounded-lg p-3' : ''}`}>
             {isEditing && <p className="text-sm font-medium text-blue-300 mb-2">✏️ Editing Score</p>}
             <div className="grid grid-cols-2 gap-3">
@@ -254,19 +256,19 @@ const MatchCard = ({
         )}
 
         {scoreSubmission.status === 'pending' && (
-          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
-            <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-              <div>
-                <p className="font-semibold text-yellow-300">Team 1: {scoreSubmission.team1Score}</p>
-                <p className="text-yellow-400">Matches: {scoreSubmission.team1Matches} 🏆</p>
-              </div>
-              <div>
-                <p className="font-semibold text-yellow-300">Team 2: {scoreSubmission.team2Score}</p>
-                <p className="text-yellow-400">Matches: {scoreSubmission.team2Matches} 🏆</p>
-              </div>
+          <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-center">
+            <div className="flex justify-around items-center font-semibold text-yellow-300 text-lg mb-2">
+                <span>{scoreSubmission.team1Score}</span>
+                <span className="text-sm uppercase">Points</span>
+                <span>{scoreSubmission.team2Score}</span>
+            </div>
+            <div className="flex justify-around items-center text-yellow-400 text-lg">
+                <span>{scoreSubmission.team1Matches} 🏆</span>
+                <span className="text-sm uppercase">Matches</span>
+                <span>{scoreSubmission.team2Matches} 🏆</span>
             </div>
             {canVerify && (
-              <div className="flex gap-2">
+              <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => onVerifyScore(roundIdx, matchIdx)}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
@@ -286,17 +288,19 @@ const MatchCard = ({
 
         {scoreSubmission.status === 'verified' && !isEditing && (
           <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
-            <div className="flex justify-between items-start mb-2">
-              <div className="grid grid-cols-2 gap-2 text-sm flex-1">
-                <div>
-                  <p className="font-semibold text-green-300">Team 1: {scoreSubmission.team1Score}</p>
-                  <p className="text-green-400">Matches: {scoreSubmission.team1Matches} 🏆</p>
+            <div className="flex justify-between items-center">
+                <div className="flex-1 text-center">
+                    <div className="flex justify-around items-center font-semibold text-green-300 text-lg">
+                        <span>{scoreSubmission.team1Score}</span>
+                        <span className="text-sm uppercase">Points</span>
+                        <span>{scoreSubmission.team2Score}</span>
+                    </div>
+                    <div className="flex justify-around items-center text-green-400 text-lg">
+                        <span>{scoreSubmission.team1Matches} 🏆</span>
+                        <span className="text-sm uppercase">Matches</span>
+                        <span>{scoreSubmission.team2Matches} 🏆</span>
+                    </div>
                 </div>
-                <div>
-                  <p className="font-semibold text-green-300">Team 2: {scoreSubmission.team2Score}</p>
-                  <p className="text-green-400">Matches: {scoreSubmission.team2Matches} 🏆</p>
-                </div>
-              </div>
               {canEdit && (
                 <button
                   onClick={handleEdit}
@@ -314,20 +318,22 @@ const MatchCard = ({
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
             <p className="text-sm font-medium text-red-300 mb-2">⚠️ Score Disputed</p>
             <p className="text-sm text-red-400 mb-2">{scoreSubmission.disputeReason}</p>
-            <div className="flex gap-2">
-              <button
-                onClick={() => onResolveDispute(roundIdx, matchIdx, true)}
-                className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
-              >
-                Accept Score
-              </button>
-              <button
-                onClick={() => onResolveDispute(roundIdx, matchIdx, false)}
-                className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
-              >
-                Reset
-              </button>
-            </div>
+            {isAdmin && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => onResolveDispute(roundIdx, matchIdx, true)}
+                  className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
+                >
+                  Accept Score
+                </button>
+                <button
+                  onClick={() => onResolveDispute(roundIdx, matchIdx, false)}
+                  className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
+                >
+                  Reset
+                </button>
+              </div>
+            )}
           </div>
         )}
 
