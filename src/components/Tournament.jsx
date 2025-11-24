@@ -28,10 +28,10 @@ const Tournament = ({
 }) => {
   if (!tournament || !tournament.schedule || tournament.schedule.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4 flex items-center justify-center">
+      <div className="min-h-screen bg-shark p-4 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-700">Loading Tournament...</h2>
-          <p className="text-gray-500">Please wait while the data is being fetched.</p>
+          <h2 className="text-xl font-bold text-gray-300">Loading Tournament...</h2>
+          <p className="text-gray-400">Please wait while the data is being fetched.</p>
         </div>
       </div>
     );
@@ -48,19 +48,19 @@ const Tournament = ({
     : [];
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100 p-4">
+    <div className="min-h-screen bg-shark p-4">
       <div className="max-w-7xl mx-auto">
-        <div className="bg-white rounded-lg shadow-lg p-6 mb-6">
+        <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
           <div className="flex justify-between items-center">
             <div className="flex items-center gap-3">
-              <Trophy className="text-indigo-600" size={32} />
+              <Trophy className="text-thunderbird" size={32} />
               <div>
-                <h1 className="text-2xl font-bold text-gray-800">Jass Tournament</h1>
-                <p className="text-sm text-gray-600">
+                <h1 className="text-2xl font-bold text-gray-100">Jass Tournament</h1>
+                <p className="text-sm text-gray-400">
                   Round {currentRound + 1} of {tournament.schedule.length}
                 </p>
                 {tournamentId && (
-                  <p className="text-xs text-indigo-600 font-mono">ID: {tournamentId}</p>
+                  <p className="text-xs text-thunderbird font-mono">ID: {tournamentId}</p>
                 )}
               </div>
             </div>
@@ -68,7 +68,7 @@ const Tournament = ({
               {tournamentId && (
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-thunderbird text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
                 >
                   <Share2 size={18} />
                   Share
@@ -80,13 +80,13 @@ const Tournament = ({
                     clearTournament();
                   }
                 }}
-                className="px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
               >
                 Exit
               </button>
               <button
                 onClick={() => setShowIdentityModal(true)}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
+                className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
               >
                 <UserCheck size={18} />
                 {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
@@ -101,8 +101,8 @@ const Tournament = ({
                 onClick={() => setCurrentRound(idx)}
                 className={`px-3 py-1 rounded ${
                   currentRound === idx
-                    ? 'bg-indigo-600 text-white'
-                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                    ? 'bg-thunderbird text-white'
+                    : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
                 R{idx + 1}
@@ -113,12 +113,12 @@ const Tournament = ({
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
-            <div className="bg-white rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Matches</h2>
+            <div className="bg-gray-800 rounded-lg shadow-lg p-6">
+              <h2 className="text-xl font-bold text-gray-100 mb-4">Matches</h2>
               
               {currentRoundData && currentRoundData.sitting && currentRoundData.sitting.length > 0 && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm font-medium text-yellow-800">
+                <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-sm font-medium text-yellow-300">
                     On break: {currentRoundData.sitting.map(id => tournament.players[id]).join(', ')}
                   </p>
                 </div>
@@ -128,8 +128,8 @@ const Tournament = ({
                 if (!match || !match.team1 || !match.team2) {
                   console.error('❌ Invalid match data:', match);
                   return (
-                    <div key={idx} className="border-2 border-red-200 rounded-lg p-4 mb-4 bg-red-50">
-                      <p className="text-red-600">⚠️ Error: Invalid match data</p>
+                    <div key={idx} className="border-2 border-red-500/50 rounded-lg p-4 mb-4 bg-red-500/10">
+                      <p className="text-red-400">⚠️ Error: Invalid match data</p>
                     </div>
                   );
                 }

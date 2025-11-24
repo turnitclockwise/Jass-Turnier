@@ -30,8 +30,8 @@ const MatchCard = ({
   if (!scoreSubmission) {
     // Render a loading or error state if scoreSubmission is missing
     return (
-        <div className="border-2 border-gray-200 rounded-lg p-4 mb-4">
-            <p>Loading scores...</p>
+        <div className="border-2 border-gray-700 rounded-lg p-4 mb-4 bg-gray-800">
+            <p className="text-gray-300">Loading scores...</p>
         </div>
     );
   }
@@ -123,13 +123,13 @@ const MatchCard = ({
   const getStatusIcon = () => {
     switch (scoreSubmission.status) {
       case 'none':
-        return <Clock className="text-gray-400" size={20} />;
+        return <Clock className="text-gray-500" size={20} />;
       case 'pending':
-        return <AlertCircle className="text-yellow-500" size={20} />;
+        return <AlertCircle className="text-yellow-400" size={20} />;
       case 'verified':
-        return <CheckCircle className="text-green-500" size={20} />;
+        return <CheckCircle className="text-green-400" size={20} />;
       case 'disputed':
-        return <XCircle className="text-red-500" size={20} />;
+        return <XCircle className="text-red-400" size={20} />;
       default:
         return null;
     }
@@ -151,92 +151,92 @@ const MatchCard = ({
   };
 
   return (
-    <div className="border-2 border-gray-200 rounded-lg p-4 mb-4">
+    <div className="border-2 border-gray-700 rounded-lg p-4 mb-4 bg-gray-800">
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
-          <Table className="text-indigo-600" size={20} />
-          <span className="font-bold text-gray-800">Table {match.table}</span>
+          <Table className="text-thunderbird" size={20} />
+          <span className="font-bold text-gray-100">Table {match.table}</span>
         </div>
         <div className="flex items-center gap-2">
           {getStatusIcon()}
-          <span className="text-sm text-gray-600">{getStatusText()}</span>
+          <span className="text-sm text-gray-400">{getStatusText()}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-4">
-        <div className="bg-blue-50 p-3 rounded-lg">
-          <p className="text-xs font-semibold text-blue-800 mb-1">TEAM 1</p>
+        <div className="bg-gray-700 p-3 rounded-lg">
+          <p className="text-xs font-semibold text-gray-300 mb-1">TEAM 1</p>
           {match.team1.map(id => (
-            <p key={id} className="text-sm text-blue-900">{tournament.players[id]}</p>
+            <p key={id} className="text-sm text-gray-100">{tournament.players[id]}</p>
           ))}
         </div>
-        <div className="bg-green-50 p-3 rounded-lg">
-          <p className="text-xs font-semibold text-green-800 mb-1">TEAM 2</p>
+        <div className="bg-gray-700 p-3 rounded-lg">
+          <p className="text-xs font-semibold text-gray-300 mb-1">TEAM 2</p>
           {match.team2.map(id => (
-            <p key={id} className="text-sm text-green-900">{tournament.players[id]}</p>
+            <p key={id} className="text-sm text-gray-100">{tournament.players[id]}</p>
           ))}
         </div>
       </div>
 
       {(scoreSubmission.status === 'none' || isEditing) && canSubmit && (
-        <div className={`space-y-3 ${isEditing ? 'bg-blue-50 border border-blue-200 rounded-lg p-3' : ''}`}>
-          {isEditing && <p className="text-sm font-medium text-blue-800 mb-2">✏️ Editing Score</p>}
+        <div className={`space-y-3 ${isEditing ? 'bg-blue-900/20 border border-blue-500/30 rounded-lg p-3' : ''}`}>
+          {isEditing && <p className="text-sm font-medium text-blue-300 mb-2">✏️ Editing Score</p>}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Score</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Team 1 Score</label>
               <input
                 type="number"
                 min="0"
                 max="628"
                 value={team1Score}
                 onChange={(e) => handleTeam1Change(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
                 placeholder="0-628"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Score</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Team 2 Score</label>
               <input
                 type="number"
                 min="0"
                 max="628"
                 value={team2Score}
                 onChange={(e) => handleTeam2Change(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
                 placeholder="Auto-calculated"
               />
             </div>
           </div>
-          {errors.score && <p className="text-red-500 text-xs mt-1">{errors.score}</p>}
+          {errors.score && <p className="text-red-400 text-xs mt-1">{errors.score}</p>}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Team 1 Matches</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Team 1 Matches</label>
               <input
                 type="number"
                 min="0"
                 max="4"
                 value={team1Matches}
                 onChange={(e) => handleMatchesChange(setTeam1Matches, e.target.value, true)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-gray-700 mb-1">Team 2 Matches</label>
+              <label className="block text-xs font-medium text-gray-400 mb-1">Team 2 Matches</label>
               <input
                 type="number"
                 min="0"
                 max="4"
                 value={team2Matches}
                 onChange={(e) => handleMatchesChange(setTeam2Matches, e.target.value, false)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
               />
             </div>
           </div>
-          {errors.matches && <p className="text-red-500 text-xs mt-1">{errors.matches}</p>}
+          {errors.matches && <p className="text-red-400 text-xs mt-1">{errors.matches}</p>}
           <div className="flex gap-2 mt-3">
             <button
               onClick={handleSubmit}
-              className="flex-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium disabled:bg-gray-400"
+              className="flex-1 px-4 py-2 bg-thunderbird text-white rounded-lg hover:bg-red-700 font-medium disabled:bg-gray-600"
               disabled={Object.keys(errors).length > 0}
             >
               {isEditing ? 'Update Score' : 'Submit Score'}
@@ -244,7 +244,7 @@ const MatchCard = ({
             {isEditing && (
               <button
                 onClick={() => setIsEditing(false)}
-                className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                className="px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500"
               >
                 Cancel
               </button>
@@ -254,15 +254,15 @@ const MatchCard = ({
       )}
 
       {scoreSubmission.status === 'pending' && (
-        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+        <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
           <div className="grid grid-cols-2 gap-2 text-sm mb-3">
             <div>
-              <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
-              <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+              <p className="font-semibold text-yellow-300">Team 1: {scoreSubmission.team1Score}</p>
+              <p className="text-yellow-400">Matches: {scoreSubmission.team1Matches} 🏆</p>
             </div>
             <div>
-              <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
-              <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+              <p className="font-semibold text-yellow-300">Team 2: {scoreSubmission.team2Score}</p>
+              <p className="text-yellow-400">Matches: {scoreSubmission.team2Matches} 🏆</p>
             </div>
           </div>
           {canVerify && (
@@ -285,22 +285,22 @@ const MatchCard = ({
       )}
 
       {scoreSubmission.status === 'verified' && !isEditing && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3">
+        <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-3">
           <div className="flex justify-between items-start mb-2">
             <div className="grid grid-cols-2 gap-2 text-sm flex-1">
               <div>
-                <p className="font-semibold text-gray-700">Team 1: {scoreSubmission.team1Score}</p>
-                <p className="text-gray-600">Matches: {scoreSubmission.team1Matches} 🏆</p>
+                <p className="font-semibold text-green-300">Team 1: {scoreSubmission.team1Score}</p>
+                <p className="text-green-400">Matches: {scoreSubmission.team1Matches} 🏆</p>
               </div>
               <div>
-                <p className="font-semibold text-gray-700">Team 2: {scoreSubmission.team2Score}</p>
-                <p className="text-gray-600">Matches: {scoreSubmission.team2Matches} 🏆</p>
+                <p className="font-semibold text-green-300">Team 2: {scoreSubmission.team2Score}</p>
+                <p className="text-green-400">Matches: {scoreSubmission.team2Matches} 🏆</p>
               </div>
             </div>
             {canEdit && (
               <button
                 onClick={handleEdit}
-                className="ml-2 p-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 rounded"
+                className="ml-2 p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
                 title="Edit Score"
               >
                 <Edit2 size={18} />
@@ -311,9 +311,9 @@ const MatchCard = ({
       )}
 
       {scoreSubmission.status === 'disputed' && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3">
-          <p className="text-sm font-medium text-red-800 mb-2">⚠️ Score Disputed</p>
-          <p className="text-sm text-red-700 mb-2">{scoreSubmission.disputeReason}</p>
+        <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+          <p className="text-sm font-medium text-red-300 mb-2">⚠️ Score Disputed</p>
+          <p className="text-sm text-red-400 mb-2">{scoreSubmission.disputeReason}</p>
           <div className="flex gap-2">
             <button
               onClick={() => onResolveDispute(roundIdx, matchIdx, true)}
@@ -333,13 +333,13 @@ const MatchCard = ({
 
       {showDisputeModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-            <h3 className="text-xl font-bold text-gray-800 mb-4">Dispute Score</h3>
+          <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-700">
+            <h3 className="text-xl font-bold text-gray-100 mb-4">Dispute Score</h3>
             <textarea
               value={disputeReason}
               onChange={(e) => setDisputeReason(e.target.value)}
               placeholder="Explain why you're disputing this score..."
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 mb-4"
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird mb-4"
               rows="4"
             />
             <div className="flex gap-2">
@@ -351,7 +351,7 @@ const MatchCard = ({
               </button>
               <button
                 onClick={() => setShowDisputeModal(false)}
-                className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 font-medium"
+                className="flex-1 px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500 font-medium"
               >
                 Cancel
               </button>
