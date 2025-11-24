@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Trophy, Share2, UserCheck } from 'lucide-react';
+import { Trophy, Share2, UserCheck, LogOut } from 'lucide-react'; // Import LogOut
 import MatchCard from './MatchCard';
 import Standings from './Standings';
 
@@ -40,7 +40,6 @@ const Tournament = ({
   const currentRoundData = tournament.schedule[currentRound];
   const standings = rankingMode === 'total' ? getStandings() : getStandingsByAverage();
 
-  // Ensure matches is an array
   const matches = currentRoundData && currentRoundData.matches
     ? Array.isArray(currentRoundData.matches)
       ? currentRoundData.matches
@@ -51,7 +50,7 @@ const Tournament = ({
     <div className="min-h-screen bg-shark p-4">
       <div className="max-w-7xl mx-auto">
         <div className="bg-gray-800 rounded-lg shadow-lg p-6 mb-6">
-          <div className="flex justify-between items-center">
+          <div className="flex flex-wrap justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <Trophy className="text-thunderbird" size={32} />
               <div>
@@ -64,14 +63,14 @@ const Tournament = ({
                 )}
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex gap-2 flex-wrap">
               {tournamentId && (
                 <button
                   onClick={() => setShowShareModal(true)}
                   className="px-4 py-2 bg-thunderbird text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
                 >
                   <Share2 size={18} />
-                  Share
+                  <span className="hidden sm:inline">Share</span>
                 </button>
               )}
               <button
@@ -80,16 +79,19 @@ const Tournament = ({
                     clearTournament();
                   }
                 }}
-                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
               >
-                Exit
+                <LogOut size={18} />
+                <span className="hidden sm:inline">Exit</span>
               </button>
               <button
                 onClick={() => setShowIdentityModal(true)}
                 className="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center gap-2"
               >
                 <UserCheck size={18} />
-                {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
+                <span className="hidden sm:inline">
+                  {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
+                </span>
               </button>
             </div>
           </div>
