@@ -64,7 +64,7 @@ const Standings = ({
 
         <div className="space-y-3 pt-4 pb-2 px-2">
           {standings.map((player, idx) => {
-            const totalPoints = player.totalPoints + (player.bonusPoints || 0);
+            const totalPoints = player.totalPoints;
             const avgWithBonus = player.gamesPlayed > 0 ? (totalPoints / player.gamesPlayed).toFixed(1) : '0.0';
             const winRate = player.gamesPlayed > 0 ? ((player.wins / player.gamesPlayed) * 100).toFixed(0) : '0';
             const isTopPlayer = idx === 0;
@@ -112,6 +112,7 @@ const Standings = ({
                       <StatItem label={t('standings.win_rate')} value={`${winRate}%`} />
                       <StatItem label={t('standings.average_points')} value={avgWithBonus} />
                       <StatItem label={t('standings.games')} value={player.gamesPlayed} />
+                      <StatItem label={t('standings.total_matches')} value={player.totalMatches} />
                       <StatItem label={t('standings.highest')} value={player.highestScore} colorClass="text-green-400" />
                       <StatItem label={t('standings.lowest')} value={player.lowestScore !== null ? player.lowestScore : '-'} colorClass="text-red-400" />
                       {tournament.bonusPointsEnabled && player.bonusPoints > 0 && (

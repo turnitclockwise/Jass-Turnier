@@ -8,9 +8,9 @@ const IdentityModal = ({ tournament, identifiedPlayer, identifyAsPlayer, setShow
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-700">
-        <h3 className="text-xl font-bold text-gray-100 mb-4">Identify Yourself</h3>
+        <h3 className="text-xl font-bold text-gray-100 mb-4">Wer meinsch du wer du bisch?</h3>
         <p className="text-sm text-gray-400 mb-4">
-          Select your name to submit scores for your matches
+        Bisch krass will du bändeli hesch? Hock ab und nimm ab.
         </p>
         <div className="space-y-2 max-h-96 overflow-y-auto">
           {tournament.players.map((name, idx) => (
@@ -34,7 +34,7 @@ const IdentityModal = ({ tournament, identifiedPlayer, identifyAsPlayer, setShow
           onClick={() => setShowIdentityModal(false)}
           className="mt-4 w-full px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500"
         >
-          Cancel
+          Abbreche
         </button>
       </div>
     </div>
