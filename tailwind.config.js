@@ -1,4 +1,3 @@
-
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   content: [
@@ -8,14 +7,15 @@ module.exports = {
     extend: {
       backgroundImage: {
         'green-carpet': "url('/green-carpet.png')",
-        'slate-board': "url('/slate-texture.jpg')",
+        'slate-board': "url('/slate-texture.png')",
+        'wood-rung': "url('/wood-texture.png')",
       },
       colors: {
         shark: '#1C2025',
         thunderbird: '#D92525',
         'dark-brown': '#654321',
         'wood-light': '#C4A484',
-        'wood-dark': '#8B4513',
+        'wood-dark': '#A26A42',
       },
     },
   },
