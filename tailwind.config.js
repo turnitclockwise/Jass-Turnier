@@ -8,12 +8,14 @@ module.exports = {
     extend: {
       backgroundImage: {
         'green-carpet': "url('/green-carpet.png')",
-        'slate-board': "url('/slate-texture.png')",
+        'slate-board': "url('/slate-texture.jpg')",
       },
       colors: {
         shark: '#1C2025',
         thunderbird: '#D92525',
-        'dark-brown': '#b6966c', // Added dark brown
+        'dark-brown': '#654321',
+        'wood-light': '#C4A484',
+        'wood-dark': '#8B4513',
       },
     },
   },

@@ -43,31 +43,39 @@ const App = () => {
   useFirebaseSync(tournamentId, setTournament);
 
   useEffect(() => {
-    const savedState = localStorage.getItem('jassTournament');
-    if (savedState) {
-      try {
-        const {
-          tournamentId: savedTournamentId,
-          identifiedPlayer: savedIdentifiedPlayer,
-          view: savedView,
-          rankingMode: savedRankingMode,
-          showExtendedStats: savedShowExtendedStats,
-          displayRound: savedDisplayRound,
-        } = JSON.parse(savedState);
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlTournamentId = urlParams.get('tournamentId');
 
-        if (savedTournamentId) {
-          console.log('🔄 Restoring session from localStorage...');
-          setTournamentId(savedTournamentId);
-          setIdentifiedPlayer(savedIdentifiedPlayer || null);
-          setView(savedView || 'tournament');
-          setRankingMode(savedRankingMode || 'total');
-          setShowExtendedStats(savedShowExtendedStats || false);
-          setDisplayRound(savedDisplayRound || 0);
-          console.log('✅ Session restored.');
+    if (urlTournamentId) {
+      console.log(`🎯 Found tournament ID in URL: ${urlTournamentId}. Joining...`);
+      handleJoinTournament(urlTournamentId);
+    } else {
+      const savedState = localStorage.getItem('jassTournament');
+      if (savedState) {
+        try {
+          const {
+            tournamentId: savedTournamentId,
+            identifiedPlayer: savedIdentifiedPlayer,
+            view: savedView,
+            rankingMode: savedRankingMode,
+            showExtendedStats: savedShowExtendedStats,
+            displayRound: savedDisplayRound,
+          } = JSON.parse(savedState);
+
+          if (savedTournamentId) {
+            console.log('🔄 Restoring session from localStorage...');
+            setTournamentId(savedTournamentId);
+            setIdentifiedPlayer(savedIdentifiedPlayer || null);
+            setView(savedView || 'tournament');
+            setRankingMode(savedRankingMode || 'total');
+            setShowExtendedStats(savedShowExtendedStats || false);
+            setDisplayRound(savedDisplayRound || 0);
+            console.log('✅ Session restored.');
+          }
+        } catch (error) {
+          console.error('❌ Failed to parse or restore from localStorage:', error);
+          localStorage.removeItem('jassTournament');
         }
-      } catch (error) {
-        console.error('❌ Failed to parse or restore from localStorage:', error);
-        localStorage.removeItem('jassTournament');
       }
     }
   }, []);
