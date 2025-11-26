@@ -5,6 +5,9 @@ module.exports = {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        'handwritten': ['"Indie Flower"', 'cursive'],
+      },
       backgroundImage: {
         'green-carpet': "url('/green-carpet.png')",
         'slate-board': "url('/slate-texture.png')",

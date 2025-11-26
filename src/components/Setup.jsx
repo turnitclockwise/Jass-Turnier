@@ -1,5 +1,5 @@
-
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Trophy } from 'lucide-react';
 
 const Setup = ({
@@ -15,18 +15,20 @@ const Setup = ({
   setBonusPointsPerMatch,
   startTournament,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="min-h-screen bg-shark p-8">
       <div className="max-w-4xl mx-auto">
         <div className="bg-gray-800 rounded-lg shadow-lg p-8">
           <div className="flex items-center gap-3 mb-6">
             <Trophy className="text-thunderbird" size={32} />
-            <h1 className="text-3xl font-bold text-gray-100">Jass-Turnier Setup</h1>
+            <h1 className="text-3xl font-bold text-gray-100">{t('setup.title')}</h1>
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Anzahl Tische
+              {t('setup.num_tables_label')}
             </label>
             <input
               type="number"
@@ -37,13 +39,13 @@ const Setup = ({
               className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
             />
             <p className="text-sm text-gray-400 mt-1">
-              Mindestens {numTables * 4} Spieler benötigt
+              {t('setup.num_tables_description', { count: numTables * 4 })}
             </p>
           </div>
 
           <div className="mb-6">
             <label className="block text-sm font-medium text-gray-300 mb-2">
-              Spielernamen
+              {t('setup.player_names_label')}
             </label>
             {playerNames.map((name, idx) => (
               <div key={idx} className="flex gap-2 mb-2">
@@ -51,7 +53,7 @@ const Setup = ({
                   type="text"
                   value={name}
                   onChange={(e) => updatePlayerName(idx, e.target.value)}
-                  placeholder={`Spieler ${idx + 1}`}
+                  placeholder={t('setup.player_placeholder', { number: idx + 1 })}
                   className="flex-1 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
                 />
                 {playerNames.length > 1 && (
@@ -59,7 +61,7 @@ const Setup = ({
                     onClick={() => removePlayer(idx)}
                     className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
                   >
-                    Entfernen
+                    {t('setup.remove_player')}
                   </button>
                 )}
               </div>
@@ -68,7 +70,7 @@ const Setup = ({
               onClick={addPlayer}
               className="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
-              Spieler hinzufügen
+              {t('setup.add_player')}
             </button>
           </div>
 
@@ -82,14 +84,14 @@ const Setup = ({
                 className="w-5 h-5 text-thunderbird rounded focus:ring-2 focus:ring-thunderbird bg-gray-600 border-gray-500"
               />
               <label htmlFor="bonusPoints" className="text-sm font-medium text-gray-300">
-                Bonus Punkte für Match?
+                {t('setup.bonus_points_label')}
               </label>
             </div>
             
             {bonusPointsEnabled && (
               <div className="mt-3">
                 <label className="block text-sm font-medium text-gray-300 mb-2">
-                  Bonus Punkte pro Match
+                  {t('setup.bonus_points_per_match_label')}
                 </label>
                 <input
                   type="number"
@@ -99,7 +101,7 @@ const Setup = ({
                   className="w-full px-4 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
                 />
                 <p className="text-xs text-gray-400 mt-1">
-                  Jeder Match gibt zusätzlich {bonusPointsPerMatch} Bonuspunkte
+                  {t('setup.bonus_points_description', { count: bonusPointsPerMatch })}
                 </p>
               </div>
             )}
@@ -109,7 +111,7 @@ const Setup = ({
             onClick={startTournament}
             className="w-full px-6 py-3 bg-thunderbird text-white rounded-lg hover:bg-red-700 font-semibold"
           >
-            Let's Go!
+            {t('setup.start_tournament')}
           </button>
         </div>
       </div>

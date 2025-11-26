@@ -1,6 +1,6 @@
-
 import React from 'react';
-import { Trophy, Share2, UserCheck, LogOut } from 'lucide-react'; // Import LogOut
+import { useTranslation } from 'react-i18next';
+import { Trophy, Share2, UserCheck, LogOut } from 'lucide-react';
 import MatchCard from './MatchCard';
 import Standings from './Standings';
 
@@ -26,12 +26,14 @@ const Tournament = ({
   resolveDispute,
   isAdmin,
 }) => {
+  const { t } = useTranslation();
+
   if (!tournament || !tournament.schedule || tournament.schedule.length === 0) {
     return (
       <div className="min-h-screen bg-shark p-4 flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-bold text-gray-300">Loading Tournament...</h2>
-          <p className="text-gray-400">Please wait while the data is being fetched.</p>
+          <h2 className="text-xl font-bold text-gray-300">{t('tournament.loading_title')}</h2>
+          <p className="text-gray-400">{t('tournament.loading_subtitle')}</p>
         </div>
       </div>
     );
@@ -54,12 +56,12 @@ const Tournament = ({
             <div className="flex items-center gap-3">
               <Trophy className="text-thunderbird" size={32} />
               <div>
-                <h1 className="text-2xl font-bold text-gray-100">Jass Tournament</h1>
+                <h1 className="text-2xl font-bold text-gray-100">{t('tournament.title')}</h1>
                 <p className="text-sm text-gray-400">
-                  Round {currentRound + 1} of {tournament.schedule.length}
+                  {t('tournament.round_of', { current: currentRound + 1, total: tournament.schedule.length })}
                 </p>
                 {tournamentId && (
-                  <p className="text-xs text-thunderbird font-mono">ID: {tournamentId}</p>
+                  <p className="text-xs text-thunderbird font-mono">{t('tournament.id', { id: tournamentId })}</p>
                 )}
               </div>
             </div>
@@ -67,22 +69,22 @@ const Tournament = ({
               {tournamentId && (
                 <button
                   onClick={() => setShowShareModal(true)}
-                  className="px-4 py-2 bg-thunderbird text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
+                  className="px-4 py-2 bg-indigo-400 text-white rounded-lg hover:bg-indigo-900 flex items-center gap-2"
                 >
                   <Share2 size={18} />
-                  <span className="hidden sm:inline">Share</span>
+                  <span className="hidden sm:inline">{t('tournament.share')}</span>
                 </button>
               )}
               <button
                 onClick={() => {
-                  if (confirm('Are you sure you want to exit this tournament? All local data will be cleared.')) {
+                  if (confirm(t('tournament.exit_confirm'))) {
                     clearTournament();
                   }
                 }}
                 className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center gap-2"
               >
                 <LogOut size={18} />
-                <span className="hidden sm:inline">Exit</span>
+                <span className="hidden sm:inline">{t('tournament.exit')}</span>
               </button>
               <button
                 onClick={() => setShowIdentityModal(true)}
@@ -90,7 +92,7 @@ const Tournament = ({
               >
                 <UserCheck size={18} />
                 <span className="hidden sm:inline">
-                  {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : 'Identify'}
+                  {identifiedPlayer !== null ? tournament.players[identifiedPlayer] : t('tournament.identify')}
                 </span>
               </button>
             </div>
@@ -107,7 +109,7 @@ const Tournament = ({
                     : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
                 }`}
               >
-                R{idx + 1}
+                {t('tournament.round', { number: idx + 1 })}
               </button>
             ))}
           </div>
@@ -116,22 +118,22 @@ const Tournament = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           <div className="lg:col-span-2">
             <div className="bg-gray-800 rounded-lg shadow-lg p-6">
-              <h2 className="text-xl font-bold text-gray-100 mb-4">Matches</h2>
+              <h2 className="text-xl font-bold text-gray-100 mb-4">{t('tournament.matches')}</h2>
               
               {currentRoundData && currentRoundData.sitting && currentRoundData.sitting.length > 0 && (
                 <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                   <p className="text-sm font-medium text-yellow-300">
-                    On break: {currentRoundData.sitting.map(id => tournament.players[id]).join(', ')}
+                    {t('tournament.on_break', { players: currentRoundData.sitting.map(id => tournament.players[id]).join(', ') })}
                   </p>
                 </div>
               )}
 
               {matches.map((match, idx) => {
                 if (!match || !match.team1 || !match.team2) {
-                  console.error('❌ Invalid match data:', match);
+                  console.error(t('tournament.invalid_match_data_log'), match);
                   return (
                     <div key={idx} className="border-2 border-red-500/50 rounded-lg p-4 mb-4 bg-red-500/10">
-                      <p className="text-red-400">⚠️ Error: Invalid match data</p>
+                      <p className="text-red-400">{t('tournament.invalid_match_data_error')}</p>
                     </div>
                   );
                 }

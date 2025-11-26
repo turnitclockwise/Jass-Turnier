@@ -1,5 +1,5 @@
-
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Table, Clock, AlertCircle, CheckCircle, XCircle, Edit2 } from 'lucide-react';
 import { Validators } from '../utils/validators';
 
@@ -16,6 +16,7 @@ const MatchCard = ({
   onDisputeScore,
   onResolveDispute
 }) => {
+  const { t } = useTranslation();
   const [team1Score, setTeam1Score] = useState('');
   const [team2Score, setTeam2Score] = useState('');
   const [team1Matches, setTeam1Matches] = useState(0);
@@ -30,7 +31,7 @@ const MatchCard = ({
   if (!scoreSubmission) {
     return (
         <div className="border-2 border-gray-700 rounded-lg p-4 mb-4 bg-gray-800">
-            <p className="text-gray-300">Loading scores...</p>
+            <p className="text-gray-300">{t('match_card.loading')}</p>
         </div>
     );
   }
@@ -137,13 +138,13 @@ const MatchCard = ({
   const getStatusText = () => {
     switch (scoreSubmission.status) {
       case 'none':
-        return 'No score submitted';
+        return t('match_card.status_none');
       case 'pending':
-        return 'Pending verification';
+        return t('match_card.status_pending');
       case 'verified':
-        return 'Score verified';
+        return t('match_card.status_verified');
       case 'disputed':
-        return 'Score disputed';
+        return t('match_card.status_disputed');
       default:
         return '';
     }
@@ -156,7 +157,7 @@ const MatchCard = ({
       <div className="flex justify-between items-start mb-3">
         <div className="flex items-center gap-2">
           <Table className="text-white" size={20} />
-          <span className="font-bold text-white">Table {match.table}</span>
+          <span className="font-bold text-white">{t('match_card.table', { table: match.table })}</span>
         </div>
         <div className="flex items-center gap-2">
           {getStatusIcon()}
@@ -167,25 +168,25 @@ const MatchCard = ({
       <div className="bg-slate-board bg-cover bg-center rounded-lg p-4 border-4 border-dark-brown">
         <div className="grid grid-cols-2 gap-4 mb-4">
           <div className="p-3 rounded-lg flex flex-col items-center">
-            <p className="text-xs font-semibold text-gray-200 mb-1">TEAM 1</p>
+            <p className="text-xl font-handwritten text-gray-200 mb-1">{t('match_card.team1')}</p>
             {match.team1.map(id => (
-              <p key={id} className="text-sm text-white">{tournament.players[id]}</p>
+              <p key={id} className="text-lg font-handwritten text-white">{tournament.players[id]}</p>
             ))}
           </div>
           <div className="p-3 rounded-lg flex flex-col items-center">
-            <p className="text-xs font-semibold text-gray-200 mb-1">TEAM 2</p>
+            <p className="text-xl font-handwritten text-gray-200 mb-1">{t('match_card.team2')}</p>
             {match.team2.map(id => (
-              <p key={id} className="text-sm text-white">{tournament.players[id]}</p>
+              <p key={id} className="text-lg font-handwritten text-white">{tournament.players[id]}</p>
             ))}
           </div>
         </div>
 
         {showSubmitForm && (
           <div className={`space-y-3 ${isEditing ? 'bg-blue-900/20 border border-blue-500/30 rounded-lg p-3' : ''}`}>
-            {isEditing && <p className="text-sm font-medium text-blue-300 mb-2">✏️ Editing Score</p>}
+            {isEditing && <p className="text-sm font-medium text-blue-300 mb-2">{t('match_card.editing_score')}</p>}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Team 1 Score</label>
+                <label className="block text-xs font-medium text-gray-300 mb-1">{t('match_card.team1_score')}</label>
                 <input
                   type="number"
                   min="0"
@@ -193,11 +194,11 @@ const MatchCard = ({
                   value={team1Score}
                   onChange={(e) => handleTeam1Change(e.target.value)}
                   className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
-                  placeholder="0-628"
+                  placeholder={t('match_card.score_placeholder')}
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Team 2 Score</label>
+                <label className="block text-xs font-medium text-gray-300 mb-1">{t('match_card.team2_score')}</label>
                 <input
                   type="number"
                   min="0"
@@ -205,14 +206,14 @@ const MatchCard = ({
                   value={team2Score}
                   onChange={(e) => handleTeam2Change(e.target.value)}
                   className="w-full px-3 py-2 bg-gray-800/50 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
-                  placeholder="Auto-calculated"
+                  placeholder={t('match_card.score_auto_placeholder')}
                 />
               </div>
             </div>
             {errors.score && <p className="text-red-400 text-xs mt-1">{errors.score}</p>}
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Team 1 Matches</label>
+                <label className="block text-xs font-medium text-gray-300 mb-1">{t('match_card.team1_matches')}</label>
                 <input
                   type="number"
                   min="0"
@@ -223,7 +224,7 @@ const MatchCard = ({
                 />
               </div>
               <div>
-                <label className="block text-xs font-medium text-gray-300 mb-1">Team 2 Matches</label>
+                <label className="block text-xs font-medium text-gray-300 mb-1">{t('match_card.team2_matches')}</label>
                 <input
                   type="number"
                   min="0"
@@ -241,14 +242,14 @@ const MatchCard = ({
                 className="flex-1 px-4 py-2 bg-thunderbird text-white rounded-lg hover:bg-red-700 font-medium disabled:bg-gray-600"
                 disabled={Object.keys(errors).length > 0}
               >
-                {isEditing ? 'Update Score' : 'Submit Score'}
+                {isEditing ? t('match_card.update_score') : t('match_card.submit_score')}
               </button>
               {isEditing && (
                 <button
                   onClick={() => setIsEditing(false)}
                   className="px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500"
                 >
-                  Cancel
+                  {t('match_card.cancel')}
                 </button>
               )}
             </div>
@@ -259,12 +260,12 @@ const MatchCard = ({
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3 text-center">
             <div className="flex justify-around items-center font-semibold text-yellow-300 text-lg mb-2">
                 <span>{scoreSubmission.team1Score}</span>
-                <span className="text-sm uppercase">Points</span>
+                <span className="text-sm uppercase">{t('match_card.points')}</span>
                 <span>{scoreSubmission.team2Score}</span>
             </div>
             <div className="flex justify-around items-center text-yellow-400 text-lg">
                 <span>{scoreSubmission.team1Matches} 🏆</span>
-                <span className="text-sm uppercase">Matches</span>
+                <span className="text-sm uppercase">{t('match_card.matches')}</span>
                 <span>{scoreSubmission.team2Matches} 🏆</span>
             </div>
             {canVerify && (
@@ -273,13 +274,13 @@ const MatchCard = ({
                   onClick={() => onVerifyScore(roundIdx, matchIdx)}
                   className="flex-1 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium"
                 >
-                  ✓ Confirm
+                  {t('match_card.confirm')}
                 </button>
                 <button
                   onClick={() => setShowDisputeModal(true)}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                 >
-                  ✗ Dispute
+                  {t('match_card.dispute')}
                 </button>
               </div>
             )}
@@ -292,12 +293,12 @@ const MatchCard = ({
                 <div className="flex-1 text-center">
                     <div className="flex justify-around items-center font-semibold text-green-300 text-lg">
                         <span>{scoreSubmission.team1Score}</span>
-                        <span className="text-sm uppercase">Points</span>
+                        <span className="text-sm uppercase">{t('match_card.points')}</span>
                         <span>{scoreSubmission.team2Score}</span>
                     </div>
                     <div className="flex justify-around items-center text-green-400 text-lg">
                         <span>{scoreSubmission.team1Matches} 🏆</span>
-                        <span className="text-sm uppercase">Matches</span>
+                        <span className="text-sm uppercase">{t('match_card.matches')}</span>
                         <span>{scoreSubmission.team2Matches} 🏆</span>
                     </div>
                 </div>
@@ -305,7 +306,7 @@ const MatchCard = ({
                 <button
                   onClick={handleEdit}
                   className="ml-2 p-2 text-gray-400 hover:text-white hover:bg-gray-700 rounded"
-                  title="Edit Score"
+                  title={t('match_card.edit_score_title')}
                 >
                   <Edit2 size={18} />
                 </button>
@@ -316,7 +317,7 @@ const MatchCard = ({
 
         {scoreSubmission.status === 'disputed' && (
           <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3">
-            <p className="text-sm font-medium text-red-300 mb-2">⚠️ Score Disputed</p>
+            <p className="text-sm font-medium text-red-300 mb-2">{t('match_card.disputed_title')}</p>
             <p className="text-sm text-red-400 mb-2">{scoreSubmission.disputeReason}</p>
             {isAdmin && (
               <div className="flex gap-2">
@@ -324,13 +325,13 @@ const MatchCard = ({
                   onClick={() => onResolveDispute(roundIdx, matchIdx, true)}
                   className="flex-1 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 text-sm"
                 >
-                  Accept Score
+                  {t('match_card.accept_score')}
                 </button>
                 <button
                   onClick={() => onResolveDispute(roundIdx, matchIdx, false)}
                   className="flex-1 px-3 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 text-sm"
                 >
-                  Reset
+                  {t('match_card.reset')}
                 </button>
               </div>
             )}
@@ -340,11 +341,11 @@ const MatchCard = ({
         {showDisputeModal && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
             <div className="bg-gray-800 rounded-lg shadow-xl max-w-md w-full p-6 border border-gray-700">
-              <h3 className="text-xl font-bold text-gray-100 mb-4">Dispute Score</h3>
+              <h3 className="text-xl font-bold text-gray-100 mb-4">{t('match_card.dispute_modal_title')}</h3>
               <textarea
                 value={disputeReason}
                 onChange={(e) => setDisputeReason(e.target.value)}
-                placeholder="Explain why you're disputing this score..."
+                placeholder={t('match_card.dispute_modal_placeholder')}
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird mb-4"
                 rows="4"
               />
@@ -353,13 +354,13 @@ const MatchCard = ({
                   onClick={handleDispute}
                   className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 font-medium"
                 >
-                  Submit Dispute
+                  {t('match_card.submit_dispute')}
                 </button>
                 <button
                   onClick={() => setShowDisputeModal(false)}
                   className="flex-1 px-4 py-2 bg-gray-600 text-gray-200 rounded-lg hover:bg-gray-500 font-medium"
                 >
-                  Cancel
+                  {t('match_card.cancel')}
                 </button>
               </div>
             </div>

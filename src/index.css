@@ -1,8 +1,10 @@
+@import url('https://fonts.googleapis.com/css2?family=Indie+Flower&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 body {
-  background-color: #212529; /* Shark */
+  background-color: #0d80f3; /* Shark */
   color: #f8f9fa; /* A light color for text */
 }

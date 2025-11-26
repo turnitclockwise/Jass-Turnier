@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Trophy, UserCheck } from 'lucide-react';
 
 const StatItem = ({ label, value, colorClass = 'text-gray-100' }) => (
@@ -17,18 +18,20 @@ const Standings = ({
   tournament,
   identifiedPlayer,
 }) => {
+  const { t } = useTranslation();
+
   return (
     <div className="bg-gray-800 rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-4">
         <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
           <Trophy className="text-yellow-400" size={24} />
-          Standings
+          {t('standings.title')}
         </h2>
         <button
           onClick={() => setShowExtendedStats(!showExtendedStats)}
           className="text-sm text-thunderbird hover:text-red-700 font-medium"
         >
-          {showExtendedStats ? 'Hide' : 'Show'} Stats
+          {showExtendedStats ? t('standings.hide_stats') : t('standings.show_stats')}
         </button>
       </div>
       
@@ -41,7 +44,7 @@ const Standings = ({
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
-          Total Points
+          {t('standings.total_points')}
         </button>
         <button
           onClick={() => setRankingMode('average')}
@@ -51,13 +54,13 @@ const Standings = ({
               : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
           }`}
         >
-          Average Points
+          {t('standings.average_points')}
         </button>
       </div>
       
       <div className="relative">
-        <div className="absolute left-4 top-0 bottom-0 w-6 bg-wood-dark rounded-t-md" />
-        <div className="absolute right-4 top-0 bottom-0 w-6 bg-wood-dark rounded-t-md" />
+        <div className="absolute left-4 top-0 bottom-0 w-6 bg-wood-light rounded-t-md" />
+        <div className="absolute right-4 top-0 bottom-0 w-6 bg-wood-light rounded-t-md" />
 
         <div className="space-y-3 pt-4 pb-2 px-2">
           {standings.map((player, idx) => {
@@ -71,7 +74,7 @@ const Standings = ({
                 key={player.id}
                 className={`relative px-12 bg-wood-rung bg-cover bg-center border-4 border-wood-dark rounded-md shadow-md transition-all duration-300 ease-in-out overflow-hidden ${
                     showExtendedStats ? 'h-36' : 'h-16'
-                } ${identifiedPlayer === player.id ? 'ring-2 ring-thunderbird' : ''}`}>
+                } ${identifiedPlayer === player.id ? 'ring-2 ring-white' : ''}`}>
                 
                 <div className="absolute top-0 left-0 right-0 flex items-center w-full h-16">
                     <div className={`absolute left-0 top-0 flex items-center justify-center w-12 h-16 font-bold text-lg text-shadow-lg ${
@@ -99,21 +102,21 @@ const Standings = ({
                                 {avgWithBonus}
                             </span>
                         )}
-                        <span className="text-xs text-gray-200 text-shadow-sm">{rankingMode === 'total' ? 'total' : 'avg'} pts</span>
+                        <span className="text-xs text-gray-200 text-shadow-sm">{rankingMode === 'total' ? t('standings.total_pts') : t('standings.avg_pts')} pts</span>
                     </div>
                 </div>
 
                 <div className={`absolute bottom-0 left-0 right-0 bg-gray-900/75 backdrop-blur-sm p-2 transition-transform duration-300 ease-in-out ${showExtendedStats ? 'translate-y-0' : 'translate-y-full'}`}>
                     <div className="grid grid-cols-3 gap-x-2 gap-y-1 text-xs">
-                      <StatItem label="Record" value={`${player.wins}W-${player.losses}L-${player.draws}D`} />
-                      <StatItem label="Win Rate" value={`${winRate}%`} />
-                      <StatItem label="Avg Points" value={avgWithBonus} />
-                      <StatItem label="Games" value={player.gamesPlayed} />
-                      <StatItem label="Highest" value={player.highestScore} colorClass="text-green-400" />
-                      <StatItem label="Lowest" value={player.lowestScore !== null ? player.lowestScore : '-'} colorClass="text-red-400" />
+                      <StatItem label={t('standings.record')} value={`${player.wins}W-${player.losses}L-${player.draws}D`} />
+                      <StatItem label={t('standings.win_rate')} value={`${winRate}%`} />
+                      <StatItem label={t('standings.average_points')} value={avgWithBonus} />
+                      <StatItem label={t('standings.games')} value={player.gamesPlayed} />
+                      <StatItem label={t('standings.highest')} value={player.highestScore} colorClass="text-green-400" />
+                      <StatItem label={t('standings.lowest')} value={player.lowestScore !== null ? player.lowestScore : '-'} colorClass="text-red-400" />
                       {tournament.bonusPointsEnabled && player.bonusPoints > 0 && (
                         <div className="col-span-3">
-                            <StatItem label="Bonus Points" value={`+${player.bonusPoints || 0}`} colorClass="text-purple-400" />
+                            <StatItem label={t('standings.bonus_points')} value={`+${player.bonusPoints || 0}`} colorClass="text-purple-400" />
                         </div>
                       )}
                     </div>

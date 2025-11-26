@@ -1,16 +1,17 @@
-
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Share2, X, Link as LinkIcon } from 'lucide-react';
 
 const ShareModal = ({ tournamentId, setShowShareModal }) => {
+  const { t } = useTranslation();
   const joinLink = `${window.location.origin}?tournamentId=${tournamentId}`;
 
   const handleShare = async () => {
     if (navigator.share) {
       try {
         await navigator.share({
-          title: 'Join My Jass Tournament',
-          text: `Join Tournament ${tournamentId}`,
+          title: t('share_modal.share_title'),
+          text: t('share_modal.share_text', { tournamentId }),
           url: joinLink,
         });
       } catch (error) {
@@ -18,7 +19,7 @@ const ShareModal = ({ tournamentId, setShowShareModal }) => {
       }
     } else {
       navigator.clipboard.writeText(joinLink);
-      alert('Link copied to clipboard!');
+      alert(t('share_modal.link_copied'));
     }
   };
 
@@ -28,7 +29,7 @@ const ShareModal = ({ tournamentId, setShowShareModal }) => {
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-100 flex items-center gap-2">
             <Share2 size={24} className="text-thunderbird" />
-            Share Tournament
+            {t('share_modal.title')}
           </h2>
           <button onClick={() => setShowShareModal(false)} className="text-gray-400 hover:text-gray-200">
             <X size={24} />
@@ -37,7 +38,7 @@ const ShareModal = ({ tournamentId, setShowShareModal }) => {
         
         <div className="space-y-4">
           <div>
-            <p className="text-sm font-semibold text-gray-300 mb-2">Tournament ID:</p>
+            <p className="text-sm font-semibold text-gray-300 mb-2">{t('share_modal.tournament_id_label')}</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -48,17 +49,17 @@ const ShareModal = ({ tournamentId, setShowShareModal }) => {
               <button
                 onClick={() => {
                   navigator.clipboard.writeText(tournamentId);
-                  alert('ID copied!');
+                  alert(t('share_modal.id_copied'));
                 }}
                 className="px-4 py-2 bg-thunderbird text-white rounded hover:bg-red-700"
               >
-                Copy
+                {t('share_modal.copy')}
               </button>
             </div>
           </div>
           
           <div>
-            <p className="text-sm font-semibold text-gray-300 mb-2">Join Link:</p>
+            <p className="text-sm font-semibold text-gray-300 mb-2">{t('share_modal.join_link_label')}</p>
             <div className="flex gap-2">
               <input
                 type="text"
@@ -68,17 +69,17 @@ const ShareModal = ({ tournamentId, setShowShareModal }) => {
               />
               <button
                 onClick={handleShare}
-                className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center gap-2"
+                className="px-4 py-2 bg-indigo-400 text-white rounded hover:bg-indigo-900 flex items-center gap-2"
               >
                 <Share2 size={18} />
-                Share
+                {t('share_modal.share')}
               </button>
             </div>
           </div>
 
           <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-3">
             <p className="text-xs text-yellow-300">
-              ⏱️ This tournament will expire in 24 hours
+              {t('share_modal.expiry_notice')}
             </p>
           </div>
         </div>

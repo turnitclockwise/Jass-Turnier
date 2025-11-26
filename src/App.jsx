@@ -1,5 +1,5 @@
-
 import React, { useState, useCallback, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import useTournament from './hooks/useTournament';
 import useLocalStorage from './hooks/useLocalStorage';
 import useFirebaseSync from './hooks/useFirebaseSync';
@@ -12,6 +12,7 @@ import ShareModal from './components/ShareModal';
 import IdentityModal from './components/IdentityModal';
 
 const App = () => {
+  const { t } = useTranslation();
   const {
     tournament,
     setTournament,
@@ -144,7 +145,7 @@ const App = () => {
     if (!match || !match.scoreSubmission) return;
 
     if (match.scoreSubmission.submittedBy === identifiedPlayer) {
-      alert('You cannot verify a score you submitted.');
+      alert(t('app.verify_error'));
       return;
     }
 

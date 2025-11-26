@@ -1,4 +1,3 @@
-
 import { ref, set, get, onValue, update, runTransaction } from 'firebase/database';
 import { database } from './firebase';
 
@@ -74,7 +73,8 @@ const _calculateStandings = (tournamentForCalc) => {
               else playerStat.draws++;
               
               if (tournamentForCalc.bonusPointsEnabled) {
-                playerStat.bonusPoints += tournamentForCalc.bonusPointsPerMatch * matches;
+                const bonus = tournamentForCalc.bonusPointsPerMatch * matches;
+                playerStat.bonusPoints += bonus;
               }
             }
           };
