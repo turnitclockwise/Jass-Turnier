@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trophy } from 'lucide-react';
+import { Settings } from 'lucide-react';
 
 const Setup = ({
   numTables,
@@ -22,7 +22,7 @@ const Setup = ({
       <div className="max-w-4xl mx-auto">
         <div className="bg-gray-800 rounded-lg shadow-lg p-8">
           <div className="flex items-center gap-3 mb-6">
-            <Trophy className="text-thunderbird" size={32} />
+            <Settings className="text-fuchsia-300" size={32} />
             <h1 className="text-3xl font-bold text-gray-100">{t('setup.title')}</h1>
           </div>
 

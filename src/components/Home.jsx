@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Trophy, PlusCircle, Users } from 'lucide-react';
+import { Heart, Spade, Diamond, Club, PlusCircle, Users } from 'lucide-react';
 
 const Home = ({ setView, joinTournamentById, joinId, setJoinId, loading }) => {
   const { t } = useTranslation();
@@ -9,7 +9,15 @@ const Home = ({ setView, joinTournamentById, joinId, setJoinId, loading }) => {
     <div className="min-h-screen bg-shark p-8">
       <div className="max-w-md mx-auto">
         <div className="bg-gray-800 rounded-lg shadow-lg p-8 text-center">
-          <Trophy className="text-thunderbird mx-auto mb-4" size={64} />
+          <div className="flex justify-center mb-4">
+            <div className="grid grid-cols-2 gap-2">
+              <Heart className="text-thunderbird" size={32} />
+              <Spade className="text-white" size={32} />
+              <Club className="text-white" size={32} />
+              <Diamond className="text-thunderbird" size={32} />
+              
+            </div>
+          </div>
           <h1 className="text-4xl font-bold text-gray-100 mb-2">{t('home.title')}</h1>
           <p className="text-gray-300 mb-8">{t('home.subtitle')}</p>
           
