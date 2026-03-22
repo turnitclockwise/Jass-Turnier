@@ -51,46 +51,49 @@ const generateTeamSchedule = (players, tables, fixedTeams) => {
         
         availableTeams = availableTeams.filter(t => !sittingTeams.includes(t));
         
-        const usedTeamsInRound = new Set();
-        
-        for (let t = 0; t < numMatchesPerRound; t++) {
-            let bestMatch = null;
-            let bestScore = -Infinity;
-            let availableForMatch = availableTeams.filter(teamIdx => !usedTeamsInRound.has(teamIdx));
-            if (availableForMatch.length < 2) break;
+        let bestRoundPairings = [];
+        let bestRoundScore = Infinity;
 
-            for (let i = 0; i < availableForMatch.length; i++) {
-                for (let j = i + 1; j < availableForMatch.length; j++) {
-                    const teamA_idx = availableForMatch[i];
-                    const teamB_idx = availableForMatch[j];
+        if (availableTeams.length >= 2) {
+            for (let attempts = 0; attempts < 200; attempts++) {
+                let currentPairings = [];
+                let currentScore = 0;
+                let shuffledTeams = [...availableTeams].sort(() => Math.random() - 0.5);
 
+                for (let i = 0; i < numMatchesPerRound; i++) {
+                    if (shuffledTeams.length < (i * 2 + 2)) break;
+                    const teamA_idx = shuffledTeams[i * 2];
+                    const teamB_idx = shuffledTeams[i * 2 + 1];
                     const oppKey = `${Math.min(teamA_idx, teamB_idx)}-${Math.max(teamA_idx, teamB_idx)}`;
                     const oppScore = usedOpponentTeams.get(oppKey) || 0;
-                    const score = -oppScore;
-
-                    if (score > bestScore) {
-                        bestScore = score;
-                        bestMatch = { teamA: teamA_idx, teamB: teamB_idx, oppKey: oppKey };
-                    }
+                    currentScore += oppScore;
+                    currentPairings.push({ teamA: teamA_idx, teamB: teamB_idx, oppKey: oppKey });
                 }
-            }
 
-            if (bestMatch) {
-                roundMatches.push({
-                    id: `r${round}-m${t}`,
-                    table: t + 1,
-                    team1: teams[bestMatch.teamA].sort((a,b) => a-b),
-                    team2: teams[bestMatch.teamB].sort((a,b) => a-b),
-                    scoreSubmission: { status: 'none', team1Score: null, team2Score: null, team1Matches: 0, team2Matches: 0, submittedBy: null, submittedAt: null, verifiedBy: null, verifiedAt: null, disputedBy: null, disputeReason: '', disputedAt: null, autoAccepted: false }
-                });
+                if (currentPairings.length === numMatchesPerRound && currentScore < bestRoundScore) {
+                    bestRoundScore = currentScore;
+                    bestRoundPairings = currentPairings;
+                }
 
-                usedOpponentTeams.set(bestMatch.oppKey, (usedOpponentTeams.get(bestMatch.oppKey) || 0) + 1);
-                usedTeamsInRound.add(bestMatch.teamA);
-                usedTeamsInRound.add(bestMatch.teamB);
+                if (bestRoundScore === 0) break;
             }
         }
         
-        const sittingPlayers = sittingTeams.map(teamIndex => teams[teamIndex]).flat();
+        bestRoundPairings.forEach((pairing, t) => {
+            roundMatches.push({
+                id: `r${round}-m${t}`,
+                table: t + 1,
+                team1: teams[pairing.teamA].sort((a,b) => a-b),
+                team2: teams[pairing.teamB].sort((a,b) => a-b),
+                scoreSubmission: { status: 'none', team1Score: null, team2Score: null, team1Matches: 0, team2Matches: 0, submittedBy: null, submittedAt: null, verifiedBy: null, verifiedAt: null, disputedBy: null, disputeReason: '', disputedAt: null, autoAccepted: false }
+            });
+            usedOpponentTeams.set(pairing.oppKey, (usedOpponentTeams.get(pairing.oppKey) || 0) + 1);
+        });
+        
+        const playingTeamIndexes = new Set(bestRoundPairings.flatMap(p => [p.teamA, p.teamB]));
+        const allTeamIndexes = [...Array(numTeams).keys()];
+        const sittingTeamIndexes = allTeamIndexes.filter(i => !playingTeamIndexes.has(i));
+        const sittingPlayers = sittingTeamIndexes.flatMap(teamIndex => teams[teamIndex]);
         
         const allPlayersInTeams = teams.flat();
         const playersWithNoTeam = players.map((_,i) => i).filter(p => !allPlayersInTeams.includes(p));
