@@ -1,5 +1,111 @@
 
-export const generateSchedule = (players, tables) => {
+const generateTeamSchedule = (players, tables, fixedTeams) => {
+    const teams = fixedTeams.map(team => team.map(p => parseInt(p, 10)));
+    const numTeams = teams.length;
+    const schedule = [];
+    const rounds = numTeams - (numTeams % 2 === 0 ? 1 : 0);
+
+    const maxMatchesPerRound = tables;
+    const teamsPlayingPerRound = Math.min(numTeams, maxMatchesPerRound * 2);
+    const numMatchesPerRound = Math.floor(teamsPlayingPerRound / 2);
+    const breaksPerRound = numTeams - (numMatchesPerRound * 2);
+
+    const usedOpponentTeams = new Map();
+    for (let i = 0; i < numTeams; i++) {
+        for (let j = i + 1; j < numTeams; j++) {
+            usedOpponentTeams.set(`${i}-${j}`, 0);
+        }
+    }
+    
+    const breakCount = new Array(numTeams).fill(0);
+    const lastBreak = new Array(numTeams).fill(-2);
+
+    for (let round = 0; round < rounds; round++) {
+        const roundMatches = [];
+        let availableTeams = [...Array(numTeams).keys()];
+        const sittingTeams = [];
+
+        if (breaksPerRound > 0) {
+            const breakPriority = availableTeams.map(t => ({
+                team: t,
+                breaks: breakCount[t],
+                lastBreak: lastBreak[t],
+                priorityScore: -breakCount[t] * 1000 + (lastBreak[t] === round - 1 ? -10000 : 0)
+            })).sort((a, b) => b.priorityScore - a.priorityScore);
+            
+            for (let i = 0; i < breaksPerRound; i++) {
+                let selectedTeam = null;
+                for (const candidate of breakPriority) {
+                    if (!sittingTeams.includes(candidate.team)) {
+                        selectedTeam = candidate.team;
+                        break;
+                    }
+                }
+                if (selectedTeam !== null) {
+                    sittingTeams.push(selectedTeam);
+                    breakCount[selectedTeam]++;
+                    lastBreak[selectedTeam] = round;
+                }
+            }
+        }
+        
+        availableTeams = availableTeams.filter(t => !sittingTeams.includes(t));
+        
+        const usedTeamsInRound = new Set();
+        
+        for (let t = 0; t < numMatchesPerRound; t++) {
+            let bestMatch = null;
+            let bestScore = -Infinity;
+            let availableForMatch = availableTeams.filter(teamIdx => !usedTeamsInRound.has(teamIdx));
+            if (availableForMatch.length < 2) break;
+
+            for (let i = 0; i < availableForMatch.length; i++) {
+                for (let j = i + 1; j < availableForMatch.length; j++) {
+                    const teamA_idx = availableForMatch[i];
+                    const teamB_idx = availableForMatch[j];
+
+                    const oppKey = `${Math.min(teamA_idx, teamB_idx)}-${Math.max(teamA_idx, teamB_idx)}`;
+                    const oppScore = usedOpponentTeams.get(oppKey) || 0;
+                    const score = -oppScore;
+
+                    if (score > bestScore) {
+                        bestScore = score;
+                        bestMatch = { teamA: teamA_idx, teamB: teamB_idx, oppKey: oppKey };
+                    }
+                }
+            }
+
+            if (bestMatch) {
+                roundMatches.push({
+                    id: `r${round}-m${t}`,
+                    table: t + 1,
+                    team1: teams[bestMatch.teamA].sort((a,b) => a-b),
+                    team2: teams[bestMatch.teamB].sort((a,b) => a-b),
+                    scoreSubmission: { status: 'none', team1Score: null, team2Score: null, team1Matches: 0, team2Matches: 0, submittedBy: null, submittedAt: null, verifiedBy: null, verifiedAt: null, disputedBy: null, disputeReason: '', disputedAt: null, autoAccepted: false }
+                });
+
+                usedOpponentTeams.set(bestMatch.oppKey, (usedOpponentTeams.get(bestMatch.oppKey) || 0) + 1);
+                usedTeamsInRound.add(bestMatch.teamA);
+                usedTeamsInRound.add(bestMatch.teamB);
+            }
+        }
+        
+        const sittingPlayers = sittingTeams.map(teamIndex => teams[teamIndex]).flat();
+        
+        const allPlayersInTeams = teams.flat();
+        const playersWithNoTeam = players.map((_,i) => i).filter(p => !allPlayersInTeams.includes(p));
+
+        schedule.push({
+            roundNumber: round + 1,
+            matches: roundMatches,
+            sitting: [...sittingPlayers, ...playersWithNoTeam].sort((a,b) => a-b)
+        });
+    }
+    return schedule;
+};
+
+
+const generateIndividualSchedule = (players, tables, fixedTeams = []) => {
     const n = players.length;
     const rounds = n - 1;
     const schedule = [];
@@ -8,7 +114,17 @@ export const generateSchedule = (players, tables) => {
     const breaksPerRound = n - playersPerRound;
     const usedPartnerships = new Set();
     const usedOpponents = new Map();
-    
+
+    const playerToPartner = new Map();
+    if (fixedTeams) {
+        fixedTeams.forEach(team => {
+            if (team[0] && team[1]) {
+                playerToPartner.set(parseInt(team[0], 10), parseInt(team[1], 10));
+                playerToPartner.set(parseInt(team[1], 10), parseInt(team[0], 10));
+            }
+        });
+    }
+
     for (let i = 0; i < n; i++) {
       for (let j = i + 1; j < n; j++) {
         usedOpponents.set(`${i}-${j}`, 0);
@@ -75,6 +191,23 @@ export const generateSchedule = (players, tables) => {
           ];
           
           for (const config of configs) {
+            let partnershipPenalty = 0;
+            if (playerToPartner.size > 0) {
+                const [p1_t1, p2_t1] = config.team1;
+                if (playerToPartner.has(p1_t1) && playerToPartner.get(p1_t1) !== p2_t1) {
+                    partnershipPenalty += 1000;
+                } else if (playerToPartner.has(p2_t1) && playerToPartner.get(p2_t1) !== p1_t1) {
+                    partnershipPenalty += 1000;
+                }
+
+                const [p1_t2, p2_t2] = config.team2;
+                if (playerToPartner.has(p1_t2) && playerToPartner.get(p1_t2) !== p2_t2) {
+                    partnershipPenalty += 1000;
+                } else if (playerToPartner.has(p2_t2) && playerToPartner.get(p2_t2) !== p1_t2) {
+                    partnershipPenalty += 1000;
+                }
+            }
+
             const t1 = config.team1.sort((a, b) => a - b);
             const t2 = config.team2.sort((a, b) => a - b);
             
@@ -90,7 +223,7 @@ export const generateSchedule = (players, tables) => {
             
             if (p1Used && p2Used && round < rounds / 2) continue;
             
-            const partnershipPenalty = (p1Used ? 50 : 0) + (p2Used ? 50 : 0);
+            partnershipPenalty += (p1Used ? 50 : 0) + (p2Used ? 50 : 0);
             const oppScore = (
               (usedOpponents.get(opp1Key) || 0) +
               (usedOpponents.get(opp2Key) || 0) +
@@ -156,3 +289,21 @@ export const generateSchedule = (players, tables) => {
     
     return schedule;
   };
+
+
+export const generateSchedule = (players, tables, fixedTeams = []) => {
+    const n = players.length;
+
+    if (fixedTeams && fixedTeams.length > 1 && fixedTeams.every(t => t[0] !== '' && t[1] !== '')) {
+        const playerInTeamSet = new Set(fixedTeams.flat().map(p => parseInt(p, 10)));
+        const numPlayersInTeams = playerInTeamSet.size;
+
+        if (numPlayersInTeams === n || numPlayersInTeams === n - 1) {
+             if ((numPlayersInTeams % 2) === 0 && fixedTeams.length === numPlayersInTeams / 2) {
+                return generateTeamSchedule(players, tables, fixedTeams);
+             }
+        }
+    }
+
+    return generateIndividualSchedule(players, tables, fixedTeams);
+};

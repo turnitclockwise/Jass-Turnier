@@ -39,6 +39,7 @@ const App = () => {
   const [rankingMode, setRankingMode] = useState('total');
   const [showExtendedStats, setShowExtendedStats] = useState(false);
   const [displayRound, setDisplayRound] = useState(0);
+  const [fixedTeams, setFixedTeams] = useState([]);
 
   useLocalStorage(tournament, tournamentId, identifiedPlayer, view, rankingMode, showExtendedStats, displayRound);
   useFirebaseSync(tournamentId, setTournament);
@@ -82,15 +83,29 @@ const App = () => {
   }, []);
 
   const addPlayer = () => setPlayerNames([...playerNames, '']);
-  const removePlayer = (idx) => setPlayerNames(playerNames.filter((_, i) => i !== idx));
+  const removePlayer = (idx) => {
+    setPlayerNames(playerNames.filter((_, i) => i !== idx));
+    setFixedTeams(fixedTeams.map(team => team.map(p => (p === idx.toString() ? '' : p))));
+  };
   const updatePlayerName = (idx, name) => {
     const newNames = [...playerNames];
     newNames[idx] = name;
     setPlayerNames(newNames);
   };
 
+  const addFixedTeam = () => setFixedTeams([...fixedTeams, ['', '']]);
+  const removeFixedTeam = (index) => setFixedTeams(fixedTeams.filter((_, i) => i !== index));
+  const updateFixedTeamPlayer = (teamIndex, playerIndex, value) => {
+    const newFixedTeams = [...fixedTeams];
+    newFixedTeams[teamIndex][playerIndex] = value;
+    if (newFixedTeams[teamIndex][0] === newFixedTeams[teamIndex][1] && newFixedTeams[teamIndex][1] !== '') {
+      newFixedTeams[teamIndex][1 - playerIndex] = '';
+    }
+    setFixedTeams(newFixedTeams);
+  };
+
   const handleStartTournament = () => {
-    createTournament(playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, setView, setShowShareModal);
+    createTournament(playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, fixedTeams, setView, setShowShareModal);
   };
 
   const handleJoinTournament = (id) => {
@@ -202,6 +217,10 @@ const App = () => {
         setBonusPointsEnabled={setBonusPointsEnabled}
         bonusPointsPerMatch={bonusPointsPerMatch}
         setBonusPointsPerMatch={setBonusPointsPerMatch}
+        fixedTeams={fixedTeams}
+        addFixedTeam={addFixedTeam}
+        removeFixedTeam={removeFixedTeam}
+        updateFixedTeamPlayer={updateFixedTeamPlayer}
         startTournament={handleStartTournament}
       />
     );

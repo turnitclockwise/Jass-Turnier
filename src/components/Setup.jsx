@@ -1,6 +1,6 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { Settings } from 'lucide-react';
+import { Settings, Users, X } from 'lucide-react';
 
 const Setup = ({
   numTables,
@@ -13,9 +13,23 @@ const Setup = ({
   setBonusPointsEnabled,
   bonusPointsPerMatch,
   setBonusPointsPerMatch,
+  fixedTeams,
+  addFixedTeam,
+  removeFixedTeam,
+  updateFixedTeamPlayer,
   startTournament,
 }) => {
   const { t } = useTranslation();
+
+  const getAvailablePlayersForTeam = (teamIndex) => {
+    const selectedPlayersInOtherTeams = fixedTeams
+      .filter((_, index) => index !== teamIndex)
+      .flat()
+      .map(p => parseInt(p, 10));
+    return playerNames
+      .map((_, index) => index)
+      .filter(index => !selectedPlayersInOtherTeams.includes(index));
+  };
 
   return (
     <div className="min-h-screen bg-shark p-8">
@@ -71,6 +85,61 @@ const Setup = ({
               className="mt-2 px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700"
             >
               {t('setup.add_player')}
+            </button>
+          </div>
+
+          <div className="mb-6 p-4 bg-gray-700 rounded-lg border border-gray-600">
+            <div className="flex items-center gap-3 mb-3">
+              <Users className="text-fuchsia-300" size={24} />
+              <h2 className="text-xl font-bold text-gray-100">{t('setup.fixed_teams_label')}</h2>
+            </div>
+            <p className="text-sm text-gray-400 mb-4">
+              {t('setup.fixed_teams_description')}
+            </p>
+            {fixedTeams.map((team, teamIndex) => {
+              const availablePlayers = getAvailablePlayersForTeam(teamIndex);
+              return (
+                <div key={teamIndex} className="flex gap-2 mb-2 items-center">
+                  <select
+                    value={team[0]}
+                    onChange={(e) => updateFixedTeamPlayer(teamIndex, 0, e.target.value)}
+                    className="flex-1 px-4 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
+                  >
+                    <option value="">{t('setup.select_player')}</option>
+                    {availablePlayers.map(playerIndex => (
+                      <option key={playerIndex} value={playerIndex} disabled={team[1] === playerIndex.toString()}>
+                        {playerNames[playerIndex]}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="text-gray-400">{t('setup.and')}</span>
+                  <select
+                    value={team[1]}
+                    onChange={(e) => updateFixedTeamPlayer(teamIndex, 1, e.target.value)}
+                    className="flex-1 px-4 py-2 bg-gray-600 border border-gray-500 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
+                  >
+                    <option value="">{t('setup.select_player')}</option>
+                    {availablePlayers.map(playerIndex => (
+                      <option key={playerIndex} value={playerIndex} disabled={team[0] === playerIndex.toString()}>
+                        {playerNames[playerIndex]}
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={() => removeFixedTeam(teamIndex)}
+                    className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              );
+            })}
+            <button
+              onClick={addFixedTeam}
+              className="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              disabled={fixedTeams.length * 2 >= playerNames.length || playerNames.length < 2}
+            >
+              {t('setup.add_fixed_team')}
             </button>
           </div>
 

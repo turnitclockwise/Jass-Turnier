@@ -12,7 +12,7 @@ const useTournament = () => {
   const [view, setView] = useState('home');
   const [loading, setLoading] = useState(false);
 
-  const startTournament = async (playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, setView, setShowShareModal) => {
+  const startTournament = async (playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, fixedTeams, setView, setShowShareModal) => {
     const validPlayers = playerNames.filter(name => name.trim() !== '');
     const playerCountValidation = Validators.validatePlayerCount(validPlayers.length, numTables);
     if (!playerCountValidation.valid) {
@@ -20,7 +20,7 @@ const useTournament = () => {
       return;
     }
 
-    const schedule = generateSchedule(validPlayers, numTables);
+    const schedule = generateSchedule(validPlayers, numTables, fixedTeams);
     const playerStats = validPlayers.map((name, idx) => ({
       id: idx,
       name,
@@ -42,7 +42,8 @@ const useTournament = () => {
       schedule,
       numTables,
       bonusPointsEnabled,
-      bonusPointsPerMatch
+      bonusPointsPerMatch,
+      fixedTeams
     };
 
     try {
@@ -86,6 +87,7 @@ const useTournament = () => {
           playerStats: tournamentData.playerStats || [],
           bonusPointsEnabled: tournamentData.bonusPointsEnabled || false,
           bonusPointsPerMatch: tournamentData.bonusPointsPerMatch || 43,
+          fixedTeams: tournamentData.fixedTeams || [],
         });
         setView('tournament');
       } else {

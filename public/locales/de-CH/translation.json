@@ -19,7 +19,12 @@
     "bonus_points_label": "Bonus Pünkt für Match?",
     "bonus_points_per_match_label": "Bonus Pünkt pro Match",
     "bonus_points_description": "Jede Match git zuesätzlich {{count}} Bonuspünkt",
-    "start_tournament": "Let's Go!"
+    "start_tournament": "Let's Go!",
+    "fixed_teams_label": "Fixi Teams",
+    "fixed_teams_description": "Erstell Paar, wo immer zäme spieled.",
+    "add_fixed_team": "Fixes Team erfasse",
+    "select_player": "Spieler uswähle",
+    "and": "und"
   },
   "standings": {
     "title": "Rangliste",
