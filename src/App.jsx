@@ -40,6 +40,7 @@ const App = () => {
   const [showExtendedStats, setShowExtendedStats] = useState(false);
   const [displayRound, setDisplayRound] = useState(0);
   const [fixedTeams, setFixedTeams] = useState([]);
+  const [handsPerMatch, setHandsPerMatch] = useState(4);
 
   useLocalStorage(tournament, tournamentId, identifiedPlayer, view, rankingMode, showExtendedStats, displayRound);
   useFirebaseSync(tournamentId, setTournament);
@@ -105,7 +106,7 @@ const App = () => {
   };
 
   const handleStartTournament = () => {
-    createTournament(playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, fixedTeams, setView, setShowShareModal);
+    createTournament(playerNames, numTables, bonusPointsEnabled, bonusPointsPerMatch, fixedTeams, handsPerMatch, setView, setShowShareModal);
   };
 
   const handleJoinTournament = (id) => {
@@ -221,6 +222,8 @@ const App = () => {
         addFixedTeam={addFixedTeam}
         removeFixedTeam={removeFixedTeam}
         updateFixedTeamPlayer={updateFixedTeamPlayer}
+        handsPerMatch={handsPerMatch}
+        setHandsPerMatch={setHandsPerMatch}
         startTournament={handleStartTournament}
       />
     );

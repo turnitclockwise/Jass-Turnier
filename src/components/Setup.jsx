@@ -17,6 +17,8 @@ const Setup = ({
   addFixedTeam,
   removeFixedTeam,
   updateFixedTeamPlayer,
+  handsPerMatch,
+  setHandsPerMatch,
   startTournament,
 }) => {
   const { t } = useTranslation();
@@ -54,6 +56,23 @@ const Setup = ({
             />
             <p className="text-sm text-gray-400 mt-1">
               {t('setup.num_tables_description', { count: numTables * 4 })}
+            </p>
+          </div>
+
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-300 mb-2">
+              {t('setup.hands_per_match_label')}
+            </label>
+            <input
+              type="number"
+              min="4"
+              step="4"
+              value={handsPerMatch}
+              onChange={(e) => setHandsPerMatch(parseInt(e.target.value))}
+              className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:ring-2 focus:ring-thunderbird"
+            />
+            <p className="text-sm text-gray-400 mt-1">
+              {t('setup.hands_per_match_description', { count: handsPerMatch / 4 * 628 })}
             </p>
           </div>
 
